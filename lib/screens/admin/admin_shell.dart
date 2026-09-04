@@ -6,6 +6,9 @@ import 'team_attendance_screen.dart';
 import 'approvals_screen.dart';
 import 'task_assignment_screen.dart';
 import 'employees_screen.dart';
+import 'live_tracking_screen.dart';
+import 'payroll_screen.dart';
+import 'visit_assignment_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -57,6 +60,30 @@ class _AdminShellState extends State<AdminShell> {
         onTap: () {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalsScreen()));
+        },
+      ),
+      QuickActionTile(
+        icon: Icons.map_outlined,
+        label: 'Assign a Visit',
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const VisitAssignmentScreen()));
+        },
+      ),
+      QuickActionTile(
+        icon: Icons.navigation_outlined,
+        label: 'Live Tracking',
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveTrackingScreen()));
+        },
+      ),
+      QuickActionTile(
+        icon: Icons.payments_outlined,
+        label: 'Payroll',
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollScreen()));
         },
       ),
     ]);

@@ -52,7 +52,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final bytes = await picked.readAsBytes();
       final photoUrl = await _service.uploadPhoto(bytes, picked.name);
       if (!mounted) return;
-      await context.read<Session>().updatePhotoUrl(photoUrl);
+      // The server keeps the same URL for this user's photo across re-uploads (by filename convention,
+      // keyed on UserID) so re-uploading doesn't leave orphaned files — but that means Flutter's
+      // in-memory ImageCache (keyed strictly by URL) would keep showing the old cached bytes for the
+      // rest of this app session without a cache-busting query param forcing a fresh fetch.
+      final bustedUrl = '$photoUrl?v=${DateTime.now().millisecondsSinceEpoch}';
+      await context.read<Session>().updatePhotoUrl(bustedUrl);
       if (!mounted) return;
       showSnack(context, 'Photo updated.');
     } catch (e) {
@@ -65,7 +70,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<Session>();
-    final photoUrl = resolvePhotoUrl(_profile?.photoUrl ?? session.photoUrl);
+    // session.photoUrl is the freshest value (updated the instant a new photo finishes uploading, see
+    // _changePhoto above); _profile.photoUrl only reflects whatever GetMyProfile last returned, which
+    // goes stale the moment a photo changes since _profile is never re-fetched after upload. Preferring
+    // session here (not the other way around, which was the original bug) is what makes a freshly
+    // uploaded photo actually show immediately instead of only "winning" when there was no prior photo.
+    final photoUrl = resolvePhotoUrl(session.photoUrl ?? _profile?.photoUrl);
     final items = <_MenuItem>[
       _MenuItem('Attendance', Icons.fingerprint, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen()))),
       _MenuItem('Leave', Icons.event_available_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaveScreen()))),

@@ -13,7 +13,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/swipe_button.dart';
 import 'daily_log_screen.dart';
+import 'my_visits_screen.dart';
 import 'notifications_screen.dart';
+import 'overtime_screen.dart';
 import 'reimbursement_screen.dart';
 import 'salary_screen.dart';
 
@@ -103,7 +105,14 @@ class _HomeScreenState extends State<HomeScreen> {
               label: Text('$_unreadNotifications'),
               child: const Icon(Icons.notifications_outlined),
             ),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+            // HomeScreen is kept alive inside EmployeeShell's IndexedStack, so it never re-runs initState
+            // when the user comes back from the bell — without awaiting this push and reloading, the
+            // unread badge would keep showing the pre-visit count even after the user reads/marks
+            // everything as read on NotificationsScreen.
+            onPressed: () async {
+              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              if (mounted) _load();
+            },
           ),
         ],
       ),
@@ -268,6 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
       (_QuickAction('Reimbursement', Icons.receipt_long_outlined, AppColors.info, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReimbursementScreen())))),
       (_QuickAction('Daily Log', Icons.edit_note_outlined, AppColors.warning, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyLogScreen())))),
       (_QuickAction('Salary & Payslip', Icons.account_balance_wallet_outlined, AppColors.success, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SalaryScreen())))),
+      (_QuickAction('My Visits', Icons.map_outlined, AppColors.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVisitsScreen())))),
+      (_QuickAction('Overtime', Icons.timer_outlined, AppColors.holiday, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OvertimeScreen())))),
       (_QuickAction('Notifications', Icons.notifications_none_rounded, AppColors.onLeave, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())))),
     ];
 

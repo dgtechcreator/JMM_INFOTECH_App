@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/date_format.dart';
 import '../../models/models.dart';
 import '../../services/leave_service.dart';
+import '../../services/overtime_service.dart';
 import '../../services/reimbursement_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -21,7 +22,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
   }
 
   @override
@@ -35,9 +36,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SingleTickerProv
     return Scaffold(
       appBar: AppBar(
         title: const Text('Approvals'),
-        bottom: TabBar(controller: _tabController, tabs: const [Tab(text: 'Leave'), Tab(text: 'Reimbursement')]),
+        bottom: TabBar(controller: _tabController, tabs: const [Tab(text: 'Leave'), Tab(text: 'Reimbursement'), Tab(text: 'Overtime')]),
       ),
-      body: TabBarView(controller: _tabController, children: const [_LeaveApprovalsTab(), _ReimbursementApprovalsTab()]),
+      body: TabBarView(controller: _tabController, children: const [_LeaveApprovalsTab(), _ReimbursementApprovalsTab(), _OvertimeApprovalsTab()]),
     );
   }
 }
@@ -235,6 +236,95 @@ class _ReimbursementApprovalsTabState extends State<_ReimbursementApprovalsTab> 
                         ])
                       else if (r.statusId.toLowerCase() == 'approved')
                         ElevatedButton(onPressed: () => _markPaid(r), child: const Text('Mark Paid')),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _OvertimeApprovalsTab extends StatefulWidget {
+  const _OvertimeApprovalsTab();
+  @override
+  State<_OvertimeApprovalsTab> createState() => _OvertimeApprovalsTabState();
+}
+
+class _OvertimeApprovalsTabState extends State<_OvertimeApprovalsTab> {
+  final _service = OvertimeService();
+  List<OvertimeLogRecord> _rows = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await _service.getOvertimeAdminList(statusId: 'Pending');
+      if (mounted) setState(() { _rows = rows; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _act(OvertimeLogRecord r, String status) async {
+    try {
+      await _service.actionOvertimeLog(r.otLogId, status);
+      if (mounted) showSnack(context, 'Overtime $status.');
+      _load();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const LoadingView();
+    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
+    if (_rows.isEmpty) return const EmptyState(message: 'No pending overtime logs.', icon: Icons.timer_outlined);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _rows.length,
+        itemBuilder: (context, i) {
+          final r = _rows[i];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(child: Text(r.employeeName, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      Text('${r.hours} hrs', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(formatDate(r.otDate), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  if ((r.description ?? '').isNotEmpty) Text(r.description!, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: OutlinedButton(onPressed: () => _act(r, 'Rejected'), child: const Text('Reject'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: ElevatedButton(onPressed: () => _act(r, 'Approved'), child: const Text('Approve'))),
                     ],
                   ),
                 ],

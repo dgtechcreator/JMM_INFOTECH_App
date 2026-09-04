@@ -273,6 +273,174 @@ class EmployeeSummary {
   final String name;
 }
 
+class VisitAssignment {
+  VisitAssignment({
+    required this.assignmentId,
+    required this.title,
+    required this.notes,
+    required this.destinationLat,
+    required this.destinationLng,
+    required this.destinationAddress,
+    required this.scheduledDate,
+    required this.statusId,
+    required this.assignedOn,
+    required this.activeTripId,
+    this.employeeId,
+    this.employeeName,
+  });
+
+  factory VisitAssignment.fromJson(Map<String, dynamic> j) => VisitAssignment(
+        assignmentId: _asInt(j['AssignmentID']),
+        employeeId: j['EmployeeID'] != null ? _asInt(j['EmployeeID']) : null,
+        employeeName: j['EmployeeName'] as String?,
+        title: _asString(j['Title']),
+        notes: j['Notes'] as String?,
+        destinationLat: _asDouble(j['DestinationLat']),
+        destinationLng: _asDouble(j['DestinationLng']),
+        destinationAddress: j['DestinationAddress'] as String?,
+        scheduledDate: j['ScheduledDate'] as String?,
+        statusId: _asString(j['StatusID'], 'Pending'),
+        assignedOn: _asString(j['AssignedOn']),
+        activeTripId: j['ActiveTripID'] != null ? _asInt(j['ActiveTripID']) : null,
+      );
+
+  final int assignmentId;
+  final int? employeeId;
+  final String? employeeName;
+  final String title;
+  final String? notes;
+  final double destinationLat;
+  final double destinationLng;
+  final String? destinationAddress;
+  final String? scheduledDate;
+  final String statusId;
+  final String assignedOn;
+  final int? activeTripId;
+}
+
+class TripDetail {
+  TripDetail({
+    required this.tripId,
+    required this.assignmentId,
+    required this.employeeId,
+    required this.employeeName,
+    required this.title,
+    required this.destinationLat,
+    required this.destinationLng,
+    required this.destinationAddress,
+    required this.startLat,
+    required this.startLng,
+    required this.statusId,
+    required this.taskStatusId,
+  });
+
+  factory TripDetail.fromJson(Map<String, dynamic> j) => TripDetail(
+        tripId: _asInt(j['TripID']),
+        assignmentId: _asInt(j['AssignmentID']),
+        employeeId: _asInt(j['EmployeeID']),
+        employeeName: _asString(j['EmployeeName']),
+        title: _asString(j['Title']),
+        destinationLat: _asDouble(j['DestinationLat']),
+        destinationLng: _asDouble(j['DestinationLng']),
+        destinationAddress: j['DestinationAddress'] as String?,
+        startLat: j['StartLat'] != null ? _asDouble(j['StartLat']) : null,
+        startLng: j['StartLng'] != null ? _asDouble(j['StartLng']) : null,
+        statusId: _asString(j['StatusID']),
+        taskStatusId: _asString(j['TaskStatusID'], 'Pending'),
+      );
+
+  final int tripId;
+  final int assignmentId;
+  final int employeeId;
+  final String employeeName;
+  final String title;
+  final double destinationLat;
+  final double destinationLng;
+  final String? destinationAddress;
+  final double? startLat;
+  final double? startLng;
+  final String statusId;
+  final String taskStatusId;
+}
+
+class TripPing {
+  TripPing({required this.lat, required this.lng, required this.capturedOn});
+  factory TripPing.fromJson(Map<String, dynamic> j) =>
+      TripPing(lat: _asDouble(j['Lat']), lng: _asDouble(j['Lng']), capturedOn: _asString(j['CapturedOn']));
+  final double lat;
+  final double lng;
+  final String capturedOn;
+}
+
+class ActiveTrip {
+  ActiveTrip({
+    required this.tripId,
+    required this.employeeName,
+    required this.title,
+    required this.destinationLat,
+    required this.destinationLng,
+    required this.destinationAddress,
+    required this.latestLat,
+    required this.latestLng,
+    required this.latestCapturedOn,
+    required this.progressPct,
+  });
+
+  factory ActiveTrip.fromJson(Map<String, dynamic> j) => ActiveTrip(
+        tripId: _asInt(j['TripID']),
+        employeeName: _asString(j['EmployeeName']),
+        title: _asString(j['Title']),
+        destinationLat: _asDouble(j['DestinationLat']),
+        destinationLng: _asDouble(j['DestinationLng']),
+        destinationAddress: j['DestinationAddress'] as String?,
+        latestLat: j['LatestLat'] != null ? _asDouble(j['LatestLat']) : null,
+        latestLng: j['LatestLng'] != null ? _asDouble(j['LatestLng']) : null,
+        latestCapturedOn: j['LatestCapturedOn'] as String?,
+        progressPct: j['ProgressPct'] != null ? _asInt(j['ProgressPct']) : null,
+      );
+
+  final int tripId;
+  final String employeeName;
+  final String title;
+  final double destinationLat;
+  final double destinationLng;
+  final String? destinationAddress;
+  final double? latestLat;
+  final double? latestLng;
+  final String? latestCapturedOn;
+  final int? progressPct;
+}
+
+class OvertimeLogRecord {
+  OvertimeLogRecord({
+    required this.otLogId,
+    required this.employeeName,
+    required this.otDate,
+    required this.hours,
+    required this.description,
+    required this.statusId,
+    required this.actionRemarks,
+  });
+
+  factory OvertimeLogRecord.fromJson(Map<String, dynamic> j) => OvertimeLogRecord(
+        otLogId: _asInt(j['OTLogID']),
+        employeeName: j['EmployeeName'] as String? ?? '',
+        otDate: _asString(j['OTDate']),
+        hours: _asDouble(j['Hours']),
+        description: j['Description'] as String?,
+        statusId: _asString(j['StatusID'], 'Pending'),
+        actionRemarks: j['ActionRemarks'] as String?,
+      );
+
+  final int otLogId;
+  final String employeeName;
+  final String otDate;
+  final double hours;
+  final String? description;
+  final String statusId;
+  final String? actionRemarks;
+}
+
 class AdminDashboardSummary {
   AdminDashboardSummary({
     required this.totalEmployees,
