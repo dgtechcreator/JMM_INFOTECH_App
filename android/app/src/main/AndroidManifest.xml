@@ -1,9 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for every API call this app makes (login, attendance, tasks, etc.) — without this,
+         Android blocks all network access and every request fails with a generic SocketException, which
+         surfaces to the user as "Something went wrong" rather than a real error message. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required by the geolocator package (punch in/out geofencing, field-visit trip tracking) — without
+         these, permission_handler/geolocator's runtime permission request silently fails since Android
+         only allows requesting a permission that's actually declared here. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
         android:label="JMM InfoTech"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config">
+        <!-- google_maps_flutter reads this at runtime. Value comes from android/local.properties
+             (gitignored) via the manifestPlaceholders["mapsApiKey"] wired in app/build.gradle.kts —
+             never hardcode the key here. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

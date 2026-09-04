@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../models/models.dart';
 import '../../services/visit_service.dart';
@@ -24,6 +23,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   bool _loading = true;
   String? _error;
   Timer? _refreshTimer;
+  GoogleMapController? _mapController;
 
   @override
   void initState() {
@@ -43,9 +43,41 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     try {
       final trips = await _service.getActiveTripsForTracking();
       if (mounted) setState(() { _trips = trips; _loading = false; });
+      _fitBounds();
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
     }
+  }
+
+  void _fitBounds() {
+    final controller = _mapController;
+    final points = _mapPoints();
+    if (controller == null || points.isEmpty) return;
+    if (points.length == 1) {
+      controller.animateCamera(CameraUpdate.newLatLngZoom(points.first, 13));
+      return;
+    }
+    var minLat = points.first.latitude, maxLat = points.first.latitude;
+    var minLng = points.first.longitude, maxLng = points.first.longitude;
+    for (final p in points) {
+      minLat = p.latitude < minLat ? p.latitude : minLat;
+      maxLat = p.latitude > maxLat ? p.latitude : maxLat;
+      minLng = p.longitude < minLng ? p.longitude : minLng;
+      maxLng = p.longitude > maxLng ? p.longitude : maxLng;
+    }
+    controller.animateCamera(CameraUpdate.newLatLngBounds(
+      LatLngBounds(southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng)),
+      40,
+    ));
+  }
+
+  List<LatLng> _mapPoints() {
+    final points = <LatLng>[];
+    for (final t in _trips) {
+      points.add(LatLng(t.destinationLat, t.destinationLng));
+      if (t.latestLat != null && t.latestLng != null) points.add(LatLng(t.latestLat!, t.latestLng!));
+    }
+    return points;
   }
 
   @override
@@ -71,25 +103,31 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   }
 
   Widget _buildMap() {
-    final markers = <Marker>[];
-    final points = <LatLng>[];
+    final markers = <Marker>{};
     for (final t in _trips) {
-      final dest = LatLng(t.destinationLat, t.destinationLng);
-      markers.add(Marker(point: dest, width: 34, height: 34, child: const Icon(Icons.flag, color: AppColors.danger, size: 28)));
-      points.add(dest);
+      markers.add(Marker(
+        markerId: MarkerId('dest-${t.tripId}'),
+        position: LatLng(t.destinationLat, t.destinationLng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(title: t.employeeName, snippet: t.title),
+      ));
       if (t.latestLat != null && t.latestLng != null) {
-        final cur = LatLng(t.latestLat!, t.latestLng!);
-        markers.add(Marker(point: cur, width: 30, height: 30, child: const Icon(Icons.person_pin_circle, color: AppColors.success, size: 30)));
-        points.add(cur);
+        markers.add(Marker(
+          markerId: MarkerId('cur-${t.tripId}'),
+          position: LatLng(t.latestLat!, t.latestLng!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: InfoWindow(title: t.employeeName, snippet: t.progressPct != null ? '${t.progressPct}% of the way' : 'In transit'),
+        ));
       }
     }
+    final points = _mapPoints();
     final center = points.isNotEmpty ? points.first : const LatLng(20.5937, 78.9629);
-    return FlutterMap(
-      options: MapOptions(initialCenter: center, initialZoom: points.length > 1 ? 6 : 12),
-      children: [
-        TileLayer(urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', subdomains: const ['a', 'b', 'c']),
-        MarkerLayer(markers: markers),
-      ],
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(target: center, zoom: points.length > 1 ? 6 : 12),
+      onMapCreated: (c) { _mapController = c; _fitBounds(); },
+      markers: markers,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: true,
     );
   }
 

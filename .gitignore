@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Google Maps/Places API key (see lib/core/maps_config.example.dart for the template)
+/lib/core/maps_config.dart
+
 # Symbolication related
 app.*.symbols
 

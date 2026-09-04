@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/location_helper.dart';
 import '../../models/models.dart';
@@ -24,7 +23,7 @@ class TripMapScreen extends StatefulWidget {
 
 class _TripMapScreenState extends State<TripMapScreen> {
   final _service = VisitService();
-  final _mapController = MapController();
+  GoogleMapController? _mapController;
 
   int? _tripId;
   String _tripStatus = 'Pending';
@@ -82,6 +81,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
     final (lat, lng) = await LocationHelper.tryGetLatLng();
     if (lat == null || lng == null || _tripId == null) return;
     if (mounted) setState(() => _myLocation = LatLng(lat, lng));
+    _mapController?.animateCamera(CameraUpdate.newLatLng(LatLng(lat, lng)));
     try {
       await _service.saveTripPing(_tripId!, lat, lng);
     } catch (_) {}
@@ -180,17 +180,16 @@ class _TripMapScreenState extends State<TripMapScreen> {
         children: [
           SizedBox(
             height: 260,
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(initialCenter: _destination, initialZoom: 14),
-              children: [
-                TileLayer(urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', subdomains: const ['a', 'b', 'c']),
-                MarkerLayer(markers: [
-                  Marker(point: _destination, width: 40, height: 40, child: const Icon(Icons.location_on, color: AppColors.danger, size: 36)),
-                  if (_myLocation != null)
-                    Marker(point: _myLocation!, width: 30, height: 30, child: const Icon(Icons.my_location, color: AppColors.success, size: 26)),
-                ]),
-              ],
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: _destination, zoom: 14),
+              onMapCreated: (c) => _mapController = c,
+              markers: {
+                Marker(markerId: const MarkerId('destination'), position: _destination, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)),
+                if (_myLocation != null)
+                  Marker(markerId: const MarkerId('me'), position: _myLocation!, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)),
+              },
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: true,
             ),
           ),
           Padding(

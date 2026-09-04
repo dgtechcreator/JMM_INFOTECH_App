@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/date_format.dart';
 import '../../models/models.dart';
+import '../../services/places_service.dart';
 import '../../services/task_service.dart';
 import '../../services/visit_service.dart';
 import '../../theme/app_theme.dart';
@@ -20,6 +20,7 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
   late final TabController _tabController;
   final _visitService = VisitService();
   final _taskService = TaskService();
+  final _placesService = PlacesService();
 
   List<EmployeeSummary> _employees = [];
   List<VisitAssignment> _assignments = [];
@@ -30,9 +31,14 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
   final _titleController = TextEditingController();
   final _notesController = TextEditingController();
   final _addressController = TextEditingController();
+  final _searchController = TextEditingController();
   DateTime? _scheduledDate;
   LatLng? _picked;
   bool _submitting = false;
+
+  GoogleMapController? _mapController;
+  List<PlacePrediction> _predictions = [];
+  bool _searching = false;
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
     _titleController.dispose();
     _notesController.dispose();
     _addressController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -71,6 +78,45 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
     }
   }
 
+  Future<void> _onSearchChanged(String value) async {
+    if (value.trim().length < 3) {
+      setState(() => _predictions = []);
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final predictions = await _placesService.autocomplete(value);
+      if (mounted) setState(() { _predictions = predictions; _searching = false; });
+    } catch (_) {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _selectPrediction(PlacePrediction p) async {
+    setState(() { _predictions = []; _searchController.text = p.description; });
+    FocusScope.of(context).unfocus();
+    final loc = await _placesService.placeDetails(p.placeId);
+    if (loc == null) {
+      if (mounted) showSnack(context, 'Could not load that place.', isError: true);
+      return;
+    }
+    _movePin(LatLng(loc.lat, loc.lng), loc.address);
+  }
+
+  Future<void> _onMapTap(LatLng point) async {
+    _movePin(point, null);
+    final address = await _placesService.reverseGeocode(point.latitude, point.longitude);
+    if (address != null && mounted) setState(() => _addressController.text = address);
+  }
+
+  void _movePin(LatLng point, String? address) {
+    setState(() {
+      _picked = point;
+      if (address != null) _addressController.text = address;
+    });
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(point, 16));
+  }
+
   Future<void> _assign() async {
     if (_selectedEmployeeId == null || _titleController.text.trim().isEmpty || _picked == null) {
       showSnack(context, 'Employee, title and a map destination are required.', isError: true);
@@ -92,6 +138,7 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
       _titleController.clear();
       _notesController.clear();
       _addressController.clear();
+      _searchController.clear();
       setState(() { _picked = null; _scheduledDate = null; });
       _tabController.animateTo(1);
       _loadAssignments();
@@ -126,21 +173,55 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
   Widget _buildAssignTab() {
     return ListView(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Stack(
+            children: [
+              TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  labelText: 'Search destination',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searching ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null,
+                ),
+              ),
+              if (_predictions.isNotEmpty)
+                Positioned(
+                  top: 56,
+                  left: 0,
+                  right: 0,
+                  child: Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: _predictions.length,
+                      itemBuilder: (context, i) {
+                        final p = _predictions[i];
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.place_outlined, size: 20),
+                          title: Text(p.description, style: const TextStyle(fontSize: 13)),
+                          onTap: () => _selectPrediction(p),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
         SizedBox(
           height: 260,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: const LatLng(20.5937, 78.9629),
-              initialZoom: 5,
-              onTap: (tapPosition, point) => setState(() => _picked = point),
-            ),
-            children: [
-              TileLayer(urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', subdomains: const ['a', 'b', 'c']),
-              if (_picked != null)
-                MarkerLayer(markers: [
-                  Marker(point: _picked!, width: 40, height: 40, child: const Icon(Icons.location_on, color: AppColors.danger, size: 36)),
-                ]),
-            ],
+          child: GoogleMap(
+            initialCameraPosition: const CameraPosition(target: LatLng(20.5937, 78.9629), zoom: 5),
+            onMapCreated: (c) => _mapController = c,
+            onTap: _onMapTap,
+            markers: _picked != null ? {Marker(markerId: const MarkerId('destination'), position: _picked!)} : {},
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: true,
           ),
         ),
         Padding(
@@ -148,7 +229,7 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Tap on the map to drop the destination pin.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              const Text('Search above, or tap on the map to drop the destination pin.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
                 value: _selectedEmployeeId,
