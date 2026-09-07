@@ -87,20 +87,27 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
     try {
       final predictions = await _placesService.autocomplete(value);
       if (mounted) setState(() { _predictions = predictions; _searching = false; });
-    } catch (_) {
-      if (mounted) setState(() => _searching = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _searching = false);
+        showSnack(context, 'Place search failed: $e', isError: true);
+      }
     }
   }
 
   Future<void> _selectPrediction(PlacePrediction p) async {
     setState(() { _predictions = []; _searchController.text = p.description; });
     FocusScope.of(context).unfocus();
-    final loc = await _placesService.placeDetails(p.placeId);
-    if (loc == null) {
-      if (mounted) showSnack(context, 'Could not load that place.', isError: true);
-      return;
+    try {
+      final loc = await _placesService.placeDetails(p.placeId);
+      if (loc == null) {
+        if (mounted) showSnack(context, 'Could not load that place.', isError: true);
+        return;
+      }
+      _movePin(LatLng(loc.lat, loc.lng), loc.address);
+    } catch (e) {
+      if (mounted) showSnack(context, 'Could not load that place: $e', isError: true);
     }
-    _movePin(LatLng(loc.lat, loc.lng), loc.address);
   }
 
   Future<void> _onMapTap(LatLng point) async {

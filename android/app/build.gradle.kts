@@ -5,6 +5,10 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Processes google-services.json at build time — needed for firebase_core/firebase_messaging
+    // (push notifications). Those Flutter plugins bring their own native Firebase dependencies, so no
+    // extra `implementation("com.google.firebase:...")` lines are needed here.
+    id("com.google.gms.google-services")
 }
 
 // Read MAPS_API_KEY from local.properties (gitignored) — never hardcode the key in a checked-in file.
@@ -24,6 +28,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications requires this (java.time / java8+ APIs backported to older
+        // Android versions) — without it, checkDebugAarMetadata fails the build outright.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -51,6 +58,11 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    // Required by isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

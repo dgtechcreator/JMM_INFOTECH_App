@@ -13,8 +13,10 @@ import '../employee/employee_shell.dart';
 import '../employee/notifications_screen.dart';
 import 'approvals_screen.dart';
 import 'employees_screen.dart';
+import 'live_tracking_screen.dart';
 import 'task_assignment_screen.dart';
 import 'team_attendance_screen.dart';
+import 'visit_assignment_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -154,6 +156,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _quickAction(context, 'Team Attendance', Icons.fingerprint, AppColors.info, const TeamAttendanceScreen()),
                       _quickAction(context, 'Approvals', Icons.fact_check_outlined, AppColors.warning, const ApprovalsScreen()),
                       _quickAction(context, 'Assign a Task', Icons.playlist_add_check_outlined, AppColors.success, const TaskAssignmentScreen()),
+                      _quickAction(context, 'Field Visits', Icons.map_outlined, AppColors.info, const VisitAssignmentScreen()),
+                      _quickAction(context, 'Live Tracking', Icons.navigation_outlined, AppColors.warning, const LiveTrackingScreen()),
                     ],
                   ),
                 ),

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../services/auth_service.dart';
+import '../../services/company_service.dart';
+import '../../services/push_notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../admin/admin_shell.dart';
 import '../employee/employee_shell.dart';
@@ -17,12 +21,25 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
+  final _companyService = CompanyService();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   String _loginType = 'Admin';
   bool _obscure = true;
   bool _loading = false;
   String? _error;
+  CompanyProfile? _companyProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyProfile();
+  }
+
+  Future<void> _loadCompanyProfile() async {
+    final profile = await _companyService.getCompanyProfile();
+    if (mounted && profile != null) setState(() => _companyProfile = profile);
+  }
 
   @override
   void dispose() {
@@ -54,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
         hasAdminAccess: result.hasAdminAccess,
         photoUrl: result.photoUrl,
       );
+      unawaited(PushNotificationService.registerToken());
       if (!mounted) return;
       _navigateToShell(result.loginType);
     } on ApiException catch (e) {
@@ -101,12 +119,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(10),
-                        child: Image.asset('assets/images/jmm_logo.png', fit: BoxFit.contain),
+                        child: _companyProfile?.logoUrl != null
+                            ? Image.network(
+                                _companyProfile!.logoUrl!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) => Image.asset('assets/images/jmm_logo.png', fit: BoxFit.contain),
+                              )
+                            : Image.asset('assets/images/jmm_logo.png', fit: BoxFit.contain),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('JMM InfoTech', textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+                  Text(_companyProfile?.companyName ?? 'JMM InfoTech', textAlign: TextAlign.center, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   const Text('Sign in to continue to your workspace', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 32),
@@ -171,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text('© JMM Infotech Pvt. Ltd.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  Text('© ${_companyProfile?.companyName ?? 'JMM Infotech Pvt. Ltd.'}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 ],
               ),
             ),

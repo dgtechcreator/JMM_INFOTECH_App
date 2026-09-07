@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,9 +7,12 @@ import 'core/session.dart';
 import 'screens/admin/admin_shell.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/employee/employee_shell.dart';
+import 'services/push_notification_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PushNotificationService.initialize();
   runApp(const JmmEmployeeApp());
 }
 
@@ -50,6 +55,7 @@ class _SplashGateState extends State<_SplashGate> {
     if (!mounted) return;
 
     if (session.status == AuthStatus.signedIn) {
+      unawaited(PushNotificationService.registerToken());
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => session.loginType == 'Employee' ? const EmployeeShell() : const AdminShell()),
       );

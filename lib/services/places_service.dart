@@ -17,6 +17,19 @@ class PlaceLocation {
   final String address;
 }
 
+/// Thrown when Google's Places/Geocoding REST APIs return a non-OK status (e.g. REQUEST_DENIED for
+/// a misconfigured/restricted API key, OVER_QUERY_LIMIT, INVALID_REQUEST). Previously these were
+/// swallowed and the caller just saw an empty result — which looked identical to "no matches" and
+/// made a bad API key indistinguishable from a real empty search. Surfacing it lets the UI show the
+/// actual reason instead of a dropdown that silently never appears.
+class PlacesApiException implements Exception {
+  PlacesApiException(this.status, this.errorMessage);
+  final String status;
+  final String? errorMessage;
+  @override
+  String toString() => errorMessage ?? status;
+}
+
 /// Thin wrapper around Google's Places Autocomplete + Place Details REST APIs, used by the
 /// destination-search box on the Assign Visit screen (and anywhere else a map needs "search then pin").
 /// Uses a bare Dio instance, not ApiClient.instance — that one is scoped to the JMM backend's baseUrl
@@ -29,9 +42,15 @@ class PlacesService {
     final res = await _dio.get('https://maps.googleapis.com/maps/api/place/autocomplete/json', queryParameters: {
       'input': input,
       'key': googlePlacesApiKey,
+      // India-only for now (this ERP's field-visit assignments are all domestic) — without this, a
+      // short/generic query can autocomplete to a same-named place in another country entirely (this is
+      // exactly how "Seawood" resolved to Lee's Summit, Missouri instead of anywhere in India).
+      'components': 'country:in',
     });
     final data = res.data as Map<String, dynamic>;
-    if (data['status'] != 'OK') return [];
+    final status = data['status'] as String? ?? 'UNKNOWN_ERROR';
+    if (status == 'ZERO_RESULTS') return [];
+    if (status != 'OK') throw PlacesApiException(status, data['error_message'] as String?);
     return (data['predictions'] as List).cast<Map<String, dynamic>>().map(PlacePrediction.fromJson).toList();
   }
 
@@ -42,7 +61,8 @@ class PlacesService {
       'key': googlePlacesApiKey,
     });
     final data = res.data as Map<String, dynamic>;
-    if (data['status'] != 'OK') return null;
+    final status = data['status'] as String? ?? 'UNKNOWN_ERROR';
+    if (status != 'OK') throw PlacesApiException(status, data['error_message'] as String?);
     final result = data['result'] as Map<String, dynamic>;
     final location = (result['geometry'] as Map<String, dynamic>)['location'] as Map<String, dynamic>;
     return PlaceLocation(

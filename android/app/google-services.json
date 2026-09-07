@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1072522203166",
+    "project_id": "jmm-employee-app",
+    "storage_bucket": "jmm-employee-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1072522203166:android:1933565b38cdb5282a9e0f",
+        "android_client_info": {
+          "package_name": "com.jmminfotech.jmm_employee_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCeHxnX7Ocl-TOHlCPQoCdFwFBUus-BhRk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

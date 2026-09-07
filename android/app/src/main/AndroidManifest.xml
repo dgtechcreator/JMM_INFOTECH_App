@@ -8,6 +8,10 @@
          only allows requesting a permission that's actually declared here. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Required on Android 13+ (API 33) to show any notification at all — without this,
+         firebase_messaging's runtime permission request silently fails the same way geolocator's would
+         without ACCESS_FINE_LOCATION above. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="JMM InfoTech"
         android:name="${applicationName}"
@@ -19,6 +23,16 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${mapsApiKey}" />
+        <!-- Default channel FCM/flutter_local_notifications posts to when a message doesn't specify one
+             (background/terminated messages from PushNotificationService.cs never set an Android-specific
+             channel) — must match the channel id created in push_notification_service.dart's
+             flutter_local_notifications setup. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="jmm_default_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
