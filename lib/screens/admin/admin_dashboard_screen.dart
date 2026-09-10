@@ -11,6 +11,7 @@ import '../../widgets/common.dart';
 import '../auth/login_screen.dart';
 import '../employee/employee_shell.dart';
 import '../employee/notifications_screen.dart';
+import 'admin_profile_screen.dart';
 import 'approvals_screen.dart';
 import 'employees_screen.dart';
 import 'live_tracking_screen.dart';
@@ -85,13 +86,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (v) {
-              if (v == 'employee') {
+              if (v == 'profile') {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminProfileScreen()));
+              } else if (v == 'employee') {
                 Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const EmployeeShell()), (r) => false);
               } else if (v == 'logout') {
                 _logout();
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(value: 'profile', child: Text('My Profile')),
               if (session.employeeId != 0) const PopupMenuItem(value: 'employee', child: Text('Switch to Employee view')),
               const PopupMenuItem(value: 'logout', child: Text('Logout')),
             ],
@@ -109,16 +113,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: AppColors.primarySoft,
-                            backgroundImage: resolvePhotoUrl(session.photoUrl) != null ? NetworkImage(resolvePhotoUrl(session.photoUrl)!) : null,
-                            child: resolvePhotoUrl(session.photoUrl) == null
-                                ? Text(
-                                    session.userName.isNotEmpty ? session.userName[0].toUpperCase() : '?',
-                                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                                  )
-                                : null,
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminProfileScreen())),
+                            child: CircleAvatar(
+                              radius: 22,
+                              backgroundColor: AppColors.primarySoft,
+                              backgroundImage: resolvePhotoUrl(session.photoUrl) != null ? NetworkImage(resolvePhotoUrl(session.photoUrl)!) : null,
+                              child: resolvePhotoUrl(session.photoUrl) == null
+                                  ? Text(
+                                      session.userName.isNotEmpty ? session.userName[0].toUpperCase() : '?',
+                                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+                                    )
+                                  : null,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(child: Text('Welcome back, ${session.userName}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
