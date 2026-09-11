@@ -55,6 +55,14 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
     int? employeeId = existing != null ? existing['EmployeeID'] as int? : null;
     DateTime date = DateTime.now();
     String status = 'Present';
+    // Prefill from the existing record when regularizing, so the admin sees (and can correct) what's
+    // already there instead of having to know it and retype it blind.
+    TimeOfDay? parseTimeOfDay(dynamic raw) {
+      final dt = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+      return dt == null ? null : TimeOfDay.fromDateTime(dt);
+    }
+    TimeOfDay? punchIn = existing != null ? parseTimeOfDay(existing['PunchInTime']) : null;
+    TimeOfDay? punchOut = existing != null ? parseTimeOfDay(existing['PunchOutTime']) : null;
     final remarksController = TextEditingController();
 
     await showModalBottomSheet(
@@ -91,6 +99,32 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.login, size: 18),
+                          label: Text(punchIn != null ? punchIn!.format(context) : 'Punch In'),
+                          onPressed: () async {
+                            final picked = await showTimePicker(context: context, initialTime: punchIn ?? TimeOfDay.now());
+                            if (picked != null) setSheetState(() => punchIn = picked);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.logout, size: 18),
+                          label: Text(punchOut != null ? punchOut!.format(context) : 'Punch Out'),
+                          onPressed: () async {
+                            final picked = await showTimePicker(context: context, initialTime: punchOut ?? TimeOfDay.now());
+                            if (picked != null) setSheetState(() => punchOut = picked);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: status,
                     isExpanded: true,
@@ -109,11 +143,20 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                         return;
                       }
                       try {
+                        // Combine the attendance date with the picked time-of-day into a full local
+                        // datetime, matching the same naive-local ISO string convention `attendanceDate`
+                        // already uses below (no UTC conversion) — the server stores/reads these as
+                        // plain DATETIME with no timezone. Only sent when the admin actually picked a
+                        // time; USP_RegularizeAttendance keeps the existing value otherwise.
+                        String? punchInIso = punchIn == null ? null : DateTime(date.year, date.month, date.day, punchIn!.hour, punchIn!.minute).toIso8601String();
+                        String? punchOutIso = punchOut == null ? null : DateTime(date.year, date.month, date.day, punchOut!.hour, punchOut!.minute).toIso8601String();
                         await _attendanceService.regularizeAttendance(
                           attendanceId: existing != null ? existing['AttendanceID'] as int? : null,
                           employeeId: employeeId!,
                           attendanceDate: date.toIso8601String(),
                           statusId: status,
+                          punchInTime: punchInIso,
+                          punchOutTime: punchOutIso,
                           remarks: remarksController.text.trim(),
                         );
                         if (context.mounted) Navigator.pop(context);

@@ -9,6 +9,16 @@ class DailyLogService {
     return (res.data as List).cast<Map<String, dynamic>>().map(VisitLogRecord.fromJson).toList();
   }
 
+  // ---- Admin ----
+
+  Future<List<VisitLogRecord>> getEmployeeVisitLogs(int employeeId) async {
+    final res = await _client.get('/EmployeeApp/GetEmployeeVisitLogs', query: {'employeeId': employeeId});
+    if (res.statusCode == 403) {
+      throw ApiException(extractMessage(res.data, 'No admin access.'), statusCode: 403);
+    }
+    return (res.data as List).cast<Map<String, dynamic>>().map(VisitLogRecord.fromJson).toList();
+  }
+
   Future<List<Map<String, dynamic>>> getCustomerDropdown() async {
     final res = await _client.get('/EmployeeApp/GetCustomerDropdown');
     return (res.data as List).cast<Map<String, dynamic>>();

@@ -45,6 +45,14 @@ class AttendanceService {
     return (res.data as List).cast<Map<String, dynamic>>();
   }
 
+  Future<List<AttendanceRecord>> getEmployeeAttendance(int employeeId, int month, int year) async {
+    final res = await _client.get('/EmployeeApp/GetEmployeeAttendance', query: {'employeeId': employeeId, 'month': month, 'year': year});
+    if (res.statusCode == 403) {
+      throw ApiException(extractMessage(res.data, 'No admin access.'), statusCode: 403);
+    }
+    return (res.data as List).cast<Map<String, dynamic>>().map(AttendanceRecord.fromJson).toList();
+  }
+
   Future<AdminDashboardSummary> getAdminDashboardSummary() async {
     final res = await _client.get('/EmployeeApp/GetAdminDashboardSummary');
     if (res.statusCode == 403) {
@@ -58,6 +66,8 @@ class AttendanceService {
     required int employeeId,
     required String attendanceDate,
     required String statusId,
+    String? punchInTime,
+    String? punchOutTime,
     String? remarks,
   }) async {
     final res = await _client.post('/EmployeeApp/RegularizeAttendance', data: {
@@ -65,6 +75,8 @@ class AttendanceService {
       'EmployeeID': employeeId,
       'AttendanceDate': attendanceDate,
       'StatusID': statusId,
+      'PunchInTime': ?punchInTime,
+      'PunchOutTime': ?punchOutTime,
       'Remarks': ?remarks,
     });
     final data = res.data as Map<String, dynamic>;

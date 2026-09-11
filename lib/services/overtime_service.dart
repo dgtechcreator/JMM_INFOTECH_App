@@ -23,10 +23,11 @@ class OvertimeService {
 
   // ---- Admin ----
 
-  Future<List<OvertimeLogRecord>> getOvertimeAdminList({String? search, String? statusId}) async {
+  Future<List<OvertimeLogRecord>> getOvertimeAdminList({String? search, String? statusId, int? employeeId}) async {
     final res = await _client.get('/EmployeeApp/GetOvertimeAdminList', query: {
-      if (search != null) 'search': search,
-      if (statusId != null) 'statusId': statusId,
+      'search': ?search,
+      'statusId': ?statusId,
+      'employeeId': ?employeeId,
     });
     if (res.statusCode == 403) {
       throw ApiException(extractMessage(res.data, 'No admin access.'), statusCode: 403);

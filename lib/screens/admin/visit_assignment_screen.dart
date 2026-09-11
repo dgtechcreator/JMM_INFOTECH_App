@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -40,6 +42,16 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
   List<PlacePrediction> _predictions = [];
   bool _searching = false;
 
+  // The predictions dropdown used to be a Positioned overflow inside a Stack, which only escapes
+  // *clipping* — it doesn't escape paint order. Everything below it in the outer ListView (the map,
+  // Employee/Title/Notes fields) is a later sibling and still paints on top of it, so the dropdown
+  // showed but was visually shredded by, and untappable under, the widgets after it. An OverlayEntry
+  // paints in Flutter's overlay layer, which is always above the whole page, and CompositedTransformTarget/
+  // Follower keeps it pinned under the search box (including while the ListView scrolls).
+  final _searchFieldKey = GlobalKey();
+  final _searchFieldLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
   @override
   void initState() {
     super.initState();
@@ -50,12 +62,66 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
 
   @override
   void dispose() {
+    _hideOverlay();
     _tabController.dispose();
     _titleController.dispose();
     _notesController.dispose();
     _addressController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _showOverlay() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.markNeedsBuild();
+      return;
+    }
+    final box = _searchFieldKey.currentContext!.findRenderObject() as RenderBox;
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: box.size.width,
+        child: CompositedTransformFollower(
+          link: _searchFieldLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, box.size.height + 4),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _predictions.length,
+                itemBuilder: (context, i) {
+                  final p = _predictions[i];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.place_outlined, size: 20),
+                    title: Text(p.description, style: const TextStyle(fontSize: 13)),
+                    onTap: () => _selectPrediction(p),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _updateOverlay() {
+    if (_predictions.isEmpty) {
+      _hideOverlay();
+    } else {
+      _showOverlay();
+    }
   }
 
   Future<void> _loadEmployees() async {
@@ -81,12 +147,16 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
   Future<void> _onSearchChanged(String value) async {
     if (value.trim().length < 3) {
       setState(() => _predictions = []);
+      _updateOverlay();
       return;
     }
     setState(() => _searching = true);
     try {
       final predictions = await _placesService.autocomplete(value);
-      if (mounted) setState(() { _predictions = predictions; _searching = false; });
+      if (mounted) {
+        setState(() { _predictions = predictions; _searching = false; });
+        _updateOverlay();
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _searching = false);
@@ -97,6 +167,7 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
 
   Future<void> _selectPrediction(PlacePrediction p) async {
     setState(() { _predictions = []; _searchController.text = p.description; });
+    _hideOverlay();
     FocusScope.of(context).unfocus();
     try {
       final loc = await _placesService.placeDetails(p.placeId);
@@ -146,7 +217,8 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
       _notesController.clear();
       _addressController.clear();
       _searchController.clear();
-      setState(() { _picked = null; _scheduledDate = null; });
+      setState(() { _picked = null; _scheduledDate = null; _predictions = []; });
+      _hideOverlay();
       _tabController.animateTo(1);
       _loadAssignments();
     } catch (e) {
@@ -182,42 +254,18 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Stack(
-            children: [
-              TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                decoration: InputDecoration(
-                  labelText: 'Search destination',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searching ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null,
-                ),
+          child: CompositedTransformTarget(
+            link: _searchFieldLink,
+            child: TextField(
+              key: _searchFieldKey,
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                labelText: 'Search destination',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searching ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null,
               ),
-              if (_predictions.isNotEmpty)
-                Positioned(
-                  top: 56,
-                  left: 0,
-                  right: 0,
-                  child: Material(
-                    elevation: 4,
-                    borderRadius: BorderRadius.circular(8),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      itemCount: _predictions.length,
-                      itemBuilder: (context, i) {
-                        final p = _predictions[i];
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.place_outlined, size: 20),
-                          title: Text(p.description, style: const TextStyle(fontSize: 13)),
-                          onTap: () => _selectPrediction(p),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
         SizedBox(
@@ -229,6 +277,13 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
             markers: _picked != null ? {Marker(markerId: const MarkerId('destination'), position: _picked!)} : {},
             myLocationButtonEnabled: false,
             zoomControlsEnabled: true,
+            // This map sits inside the outer ListView, so its drag/pinch gestures compete with the
+            // list's own vertical-scroll recognizer for the gesture arena — without claiming them
+            // eagerly, one-finger pan and two-finger pinch-zoom on the map are dropped or scroll the
+            // page instead. Standard fix for GoogleMap embedded in a scrollable parent.
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+            },
           ),
         ),
         Padding(

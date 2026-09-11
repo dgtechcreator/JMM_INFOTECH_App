@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
-import 'employee_salary_screen.dart';
+import 'employee_profile_screen.dart';
 
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
@@ -78,7 +78,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Text('${e['Designation'] ?? ''} · ${e['Department'] ?? ''}'),
                                 trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EmployeeSalaryScreen(employeeId: id, employeeName: name))),
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EmployeeProfileScreen(employeeId: id, employeeName: name))),
                               ),
                             );
                           },
