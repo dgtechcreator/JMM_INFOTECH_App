@@ -18,6 +18,7 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
   List<Map<String, dynamic>> _tasks = [];
   List<EmployeeSummary> _employees = [];
   List<Map<String, dynamic>> _priorities = [];
+  List<Map<String, dynamic>> _projects = [];
   bool _loading = true;
   String? _error;
 
@@ -36,12 +37,13 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([_service.getTaskList(), _service.getEmployeesDropdown(), _service.getTaskPriorityDropdown()]);
+      final results = await Future.wait([_service.getTaskList(), _service.getEmployeesDropdown(), _service.getTaskPriorityDropdown(), _service.getProjectDropdown()]);
       if (!mounted) return;
       setState(() {
         _tasks = results[0] as List<Map<String, dynamic>>;
         _employees = results[1] as List<EmployeeSummary>;
         _priorities = results[2] as List<Map<String, dynamic>>;
+        _projects = results[3] as List<Map<String, dynamic>>;
         _loading = false;
       });
     } catch (e) {
@@ -53,6 +55,7 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
     final titleController = TextEditingController();
     int? employeeId;
     int? priorityId;
+    int? projectId;
     DateTime? dueDate;
 
     await showModalBottomSheet(
@@ -81,6 +84,13 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       isExpanded: true,
+                      hint: const Text('Project (optional)'),
+                      items: _projects.map((p) => DropdownMenuItem(value: p['ID'] as int, child: Text('${p['ProjectName']}', overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (v) => setSheetState(() => projectId = v),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
                       hint: const Text('Priority'),
                       items: _priorities.map((p) => DropdownMenuItem(value: p['Id'] as int, child: Text('${p['Name']}', overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (v) => setSheetState(() => priorityId = v),
@@ -104,6 +114,7 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
                         try {
                           await _service.assignTask(
                             title: titleController.text.trim(),
+                            projectId: projectId,
                             taskPriority: priorityId ?? 0,
                             assignToEmployeeId: employeeId!,
                             dueDate: dueDate?.toIso8601String(),
@@ -134,7 +145,7 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Task Management')),
-      floatingActionButton: FloatingActionButton.extended(onPressed: _openAssignSheet, icon: const Icon(Icons.add), label: const Text('Assign')),
+      floatingActionButton: FloatingActionButton.extended(heroTag: null, onPressed: _openAssignSheet, icon: const Icon(Icons.add), label: const Text('Assign')),
       body: _loading
           ? const LoadingView()
           : _error != null

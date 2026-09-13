@@ -29,35 +29,44 @@ class AppBottomNav extends StatelessWidget {
         child: SizedBox(
           height: 64,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            // Each item used to size to its own intrinsic width with mainAxisAlignment.spaceEvenly —
+            // on a narrower screen or a larger system font scale, 5 items' combined width could exceed
+            // the row's, overflowing (RenderFlex overflow) and blanking out the last item entirely, the
+            // same class of bug as the reimbursement approve/reject row. Expanded gives each item a
+            // fixed, guaranteed-to-fit share instead.
             children: List.generate(items.length, (i) {
               final active = i == currentIndex;
               final item = items[i];
-              return InkWell(
-                onTap: () => onTap(i),
-                borderRadius: BorderRadius.circular(20),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: active ? AppColors.primarySoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(active ? item.activeIcon : item.icon, color: active ? AppColors.primary : AppColors.textSecondary, size: 23),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                          color: active ? AppColors.primary : AppColors.textSecondary,
-                        ),
+              return Expanded(
+                child: InkWell(
+                  onTap: () => onTap(i),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: active ? AppColors.primarySoft : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ],
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(active ? item.activeIcon : item.icon, color: active ? AppColors.primary : AppColors.textSecondary, size: 23),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                              color: active ? AppColors.primary : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -78,6 +87,7 @@ class AppFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton(
+      heroTag: null,
       onPressed: onTap,
       backgroundColor: AppColors.primary,
       elevation: 3,

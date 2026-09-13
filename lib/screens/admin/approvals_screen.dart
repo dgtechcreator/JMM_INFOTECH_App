@@ -225,19 +225,25 @@ class _ReimbursementApprovalsTabState extends State<_ReimbursementApprovalsTab> 
                   const SizedBox(height: 4),
                   Text('${r.category} · ${formatDate(r.expenseDate)}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      StatusBadge(status: r.statusId),
-                      if (r.statusId.toLowerCase() == 'pending')
-                        Row(children: [
-                          TextButton(onPressed: () => _act(r, 'Rejected'), child: const Text('Reject', style: TextStyle(color: AppColors.danger))),
-                          ElevatedButton(onPressed: () => _act(r, 'Approved'), child: const Text('Approve')),
-                        ])
-                      else if (r.statusId.toLowerCase() == 'approved')
-                        ElevatedButton(onPressed: () => _markPaid(r), child: const Text('Mark Paid')),
-                    ],
-                  ),
+                  StatusBadge(status: r.statusId),
+                  // A single spaceBetween row with the badge + both buttons overflowed off the right
+                  // edge on real devices (RenderFlex overflow, ~16px) since neither side was
+                  // Expanded/Flexible — invisible in release builds since the debug overflow stripes
+                  // don't render there, which made Approve silently disappear. Buttons get their own
+                  // full-width row instead, same safe pattern as the Leave/Overtime tabs below.
+                  if (r.statusId.toLowerCase() == 'pending') ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: OutlinedButton(onPressed: () => _act(r, 'Rejected'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger), child: const Text('Reject'))),
+                        const SizedBox(width: 10),
+                        Expanded(child: ElevatedButton(onPressed: () => _act(r, 'Approved'), child: const Text('Approve'))),
+                      ],
+                    ),
+                  ] else if (r.statusId.toLowerCase() == 'approved') ...[
+                    const SizedBox(height: 10),
+                    SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _markPaid(r), child: const Text('Mark Paid'))),
+                  ],
                 ],
               ),
             ),

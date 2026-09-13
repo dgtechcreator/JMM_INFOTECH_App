@@ -75,7 +75,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Leave')),
-      floatingActionButton: FloatingActionButton(onPressed: _openApplySheet, backgroundColor: AppColors.primary, child: const Icon(Icons.add, color: Colors.white)),
+      floatingActionButton: FloatingActionButton(heroTag: null, onPressed: _openApplySheet, backgroundColor: AppColors.primary, child: const Icon(Icons.add, color: Colors.white)),
       body: _loadingHistory
           ? const LoadingView()
           : _historyError != null
@@ -205,7 +205,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
             builder: (context, setSheetState) {
               int totalDays = 0;
               if (fromDate != null && toDate != null && !toDate!.isBefore(fromDate!)) {
-                totalDays = toDate!.difference(fromDate!).inDays + 1;
+                // Count each calendar day from fromDate to toDate inclusive, excluding Sundays.
+                for (var d = fromDate!; !d.isAfter(toDate!); d = d.add(const Duration(days: 1))) {
+                  if (d.weekday != DateTime.sunday) totalDays++;
+                }
               }
 
               Future<void> pickDate(bool isFrom) async {

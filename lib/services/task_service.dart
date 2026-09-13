@@ -44,6 +44,11 @@ class TaskService {
     return (res.data as List).cast<Map<String, dynamic>>();
   }
 
+  Future<List<Map<String, dynamic>>> getProjectDropdown() async {
+    final res = await _client.get('/EmployeeApp/GetProjectDropdown');
+    return (res.data as List).cast<Map<String, dynamic>>();
+  }
+
   Future<void> assignTask({
     required String title,
     int? projectId,

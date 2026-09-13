@@ -184,6 +184,7 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Team Attendance')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => _openRegularizeSheet(),
         icon: const Icon(Icons.add),
         label: const Text('Mark Attendance'),
