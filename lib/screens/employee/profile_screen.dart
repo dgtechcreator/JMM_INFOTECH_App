@@ -11,6 +11,7 @@ import '../auth/login_screen.dart';
 import '../admin/admin_shell.dart';
 import 'attendance_screen.dart';
 import 'daily_log_screen.dart';
+import 'documents_screen.dart';
 import 'leave_screen.dart';
 import 'notifications_screen.dart';
 import 'reimbursement_screen.dart';
@@ -83,6 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _MenuItem('Daily Log', Icons.edit_note_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyLogScreen()))),
       _MenuItem('Reimbursement', Icons.receipt_long_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReimbursementScreen()))),
       _MenuItem('Salary & Payslips', Icons.account_balance_wallet_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SalaryScreen()))),
+      _MenuItem('My Documents', Icons.description_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DocumentsScreen()))),
       _MenuItem('Notifications', Icons.notifications_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()))),
     ];
 

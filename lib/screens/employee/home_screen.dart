@@ -13,6 +13,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/swipe_button.dart';
 import 'daily_log_screen.dart';
+import 'documents_screen.dart';
 import 'my_visits_screen.dart';
 import 'notifications_screen.dart';
 import 'overtime_screen.dart';
@@ -279,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
       (_QuickAction('Salary & Payslip', Icons.account_balance_wallet_outlined, AppColors.success, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SalaryScreen())))),
       (_QuickAction('My Visits', Icons.map_outlined, AppColors.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVisitsScreen())))),
       (_QuickAction('Overtime', Icons.timer_outlined, AppColors.holiday, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OvertimeScreen())))),
+      (_QuickAction('My Documents', Icons.description_outlined, AppColors.info, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DocumentsScreen())))),
       (_QuickAction('Notifications', Icons.notifications_none_rounded, AppColors.onLeave, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())))),
     ];
 

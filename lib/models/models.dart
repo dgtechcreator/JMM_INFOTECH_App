@@ -175,6 +175,8 @@ class ReimbursementRecord {
     required this.amount,
     required this.statusId,
     required this.actionedByName,
+    required this.tripTitle,
+    required this.tripStatus,
   });
 
   factory ReimbursementRecord.fromJson(Map<String, dynamic> j) => ReimbursementRecord(
@@ -187,6 +189,9 @@ class ReimbursementRecord {
         amount: _asDouble(j['Amount']),
         statusId: _asString(j['StatusID'], 'Pending'),
         actionedByName: j['ActionedByName'] as String?,
+        tripTitle: j['TripTitle'] as String?,
+        // 'Deleted' / 'Active' / null (no trip linked) — see USP_GetReimbursementList.
+        tripStatus: j['TripStatus'] as String?,
       );
 
   final int reimbursementId;
@@ -198,6 +203,35 @@ class ReimbursementRecord {
   final double amount;
   final String statusId;
   final String? actionedByName;
+  final String? tripTitle;
+  final String? tripStatus;
+
+  bool get isTripDeleted => tripStatus == 'Deleted';
+  bool get canDelete => statusId == 'Pending';
+}
+
+class EmployeeDocumentRecord {
+  EmployeeDocumentRecord({
+    required this.documentId,
+    required this.templateName,
+    required this.documentTitle,
+    required this.documentDate,
+    required this.generatedOn,
+  });
+
+  factory EmployeeDocumentRecord.fromJson(Map<String, dynamic> j) => EmployeeDocumentRecord(
+        documentId: _asInt(j['DocumentID']),
+        templateName: _asString(j['TemplateNameSnapshot']),
+        documentTitle: _asString(j['DocumentTitle']),
+        documentDate: _asString(j['DocumentDate']),
+        generatedOn: _asString(j['GeneratedOn']),
+      );
+
+  final int documentId;
+  final String templateName;
+  final String documentTitle;
+  final String documentDate;
+  final String generatedOn;
 }
 
 class SalaryRecord {

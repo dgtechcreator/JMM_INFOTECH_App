@@ -21,6 +21,13 @@ class SalaryService {
     return list.first;
   }
 
+  /// A real PDF (Rotativa-rendered, same layout as the web payslip), handed to url_launcher since this
+  /// app has no in-app PDF viewer. Token travels as a query param — see DocumentService.downloadUrl for
+  /// why an externally-launched URL needs it there instead of the usual X-Auth-Token header.
+  String payslipDownloadUrl(int salaryId) {
+    return '${ApiConfig.baseUrl}/EmployeeApp/DownloadMyPayslip?salaryId=$salaryId&token=${_client.token}';
+  }
+
   // ---- Admin ----
 
   Future<List<SalaryRecord>> getEmployeeSalaryList(int employeeId) async {

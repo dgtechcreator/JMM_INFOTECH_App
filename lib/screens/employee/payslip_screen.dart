@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/salary_service.dart';
 import '../../theme/app_theme.dart';
@@ -39,10 +40,23 @@ class _PayslipScreenState extends State<PayslipScreen> {
     }
   }
 
+  Future<void> _downloadPdf() async {
+    final uri = Uri.parse(_service.payslipDownloadUrl(widget.salaryId));
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      showSnack(context, 'Could not open the payslip PDF.', isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Payslip')),
+      appBar: AppBar(
+        title: const Text('Payslip'),
+        actions: [
+          if (!_loading && _error == null) IconButton(icon: const Icon(Icons.picture_as_pdf_outlined), tooltip: 'Download PDF', onPressed: _downloadPdf),
+        ],
+      ),
       body: _loading
           ? const LoadingView()
           : _error != null

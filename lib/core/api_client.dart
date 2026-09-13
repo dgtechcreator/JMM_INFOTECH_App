@@ -61,6 +61,13 @@ class ApiClient {
 
   bool get hasToken => _token != null;
 
+  /// Exposed (read-only) for building a PDF view/download URL to hand to url_launcher — those open in
+  /// the device's external browser/PDF viewer, which can't carry the X-Auth-Token header the interceptor
+  /// above attaches, so the token has to travel as a `?token=` query param instead. MobileAuthAttribute
+  /// already accepts that as a fallback to the header (see its ValidateToken check), purely to support
+  /// this exact "open a link outside the app" case.
+  String? get token => _token;
+
   Future<Response<T>> get<T>(String path, {Map<String, dynamic>? query}) async {
     final res = await _dio.get<T>(path, queryParameters: query);
     _throwIfUnauthorized(res);

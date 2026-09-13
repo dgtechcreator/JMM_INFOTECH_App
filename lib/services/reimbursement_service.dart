@@ -27,6 +27,20 @@ class ReimbursementService {
     }
   }
 
+  /// Only ever succeeds server-side while the request is still Pending and actually belongs to the
+  /// caller (USP_DeleteReimbursement enforces both, keyed off the token-resolved employee id — see
+  /// EmployeeAppController.DeleteMyReimbursement) — lets an employee undo their own claim before an
+  /// admin acts on it.
+  Future<void> deleteReimbursement(int reimbursementId) async {
+    final res = await _client.post('/EmployeeApp/DeleteMyReimbursement', data: {
+      'reimbursementId': reimbursementId,
+    });
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not delete this reimbursement.'));
+    }
+  }
+
   // ---- Admin ----
 
   Future<List<ReimbursementRecord>> getReimbursementList({int? employeeId}) async {

@@ -85,6 +85,29 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> with SingleTi
     }
   }
 
+  Future<void> _confirmDelete(ReimbursementRecord r) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this request?'),
+        content: const Text('This expense claim will be removed. This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _service.deleteReimbursement(r.reimbursementId);
+      if (!mounted) return;
+      showSnack(context, 'Reimbursement request deleted.');
+      _load();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
   List<ReimbursementRecord> get _filteredRecords {
     if (_filter == 'All') return _records;
     return _records.where((r) => r.statusId.toLowerCase() == _filter.toLowerCase()).toList();
@@ -191,7 +214,22 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> with SingleTi
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('₹${r.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                            StatusBadge(status: r.statusId),
+                            Row(
+                              children: [
+                                StatusBadge(status: r.statusId),
+                                if (r.canDelete) ...[
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => _confirmDelete(r),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(Icons.delete_outline, size: 20, color: AppColors.danger),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -199,6 +237,23 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> with SingleTi
                         if (r.description.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(r.description, style: const TextStyle(fontSize: 13)),
+                        ],
+                        if (r.tripTitle != null) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            children: [
+                              Icon(Icons.map_outlined, size: 14, color: AppColors.textSecondary.withValues(alpha: 0.7)),
+                              Text(r.tripTitle!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                              if (r.isTripDeleted)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                                  child: const Text('Trip Deleted', style: TextStyle(color: AppColors.danger, fontSize: 11, fontWeight: FontWeight.w600)),
+                                ),
+                            ],
+                          ),
                         ],
                       ],
                     ),
