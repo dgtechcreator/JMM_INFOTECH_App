@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/date_format.dart';
 import '../../models/models.dart';
+import '../../services/notification_router.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -48,6 +49,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await _service.markRead(item.notificationId);
       _load();
     }
+    await routeForNotifyType(item.notifyType);
   }
 
   IconData _iconFor(String? type) {

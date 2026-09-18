@@ -73,4 +73,14 @@ class ReimbursementService {
       throw ApiException('Could not mark reimbursement paid.');
     }
   }
+
+  Future<void> sendReminder(int reimbursementId) async {
+    final res = await _client.post('/EmployeeApp/SendReimbursementReminder', data: {
+      'reimbursementId': reimbursementId,
+    });
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not send reminder.'));
+    }
+  }
 }

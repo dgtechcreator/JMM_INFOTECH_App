@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../core/api_client.dart';
+import 'notification_router.dart';
 
 const String _defaultChannelId = 'jmm_default_channel';
 const String _defaultChannelName = 'General notifications';
@@ -25,6 +26,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
 /// first successful registration).
 class PushNotificationService {
   static bool _initialized = false;
+
+  /// Set from getInitialMessage() when the app was fully closed/killed and a notification tap is what
+  /// launched it — the navigator (and therefore routeForNotifyType) doesn't exist yet at that point, so
+  /// main.dart's _SplashGate reads and clears this once it has actually pushed the signed-in shell.
+  static String? pendingNotifyType;
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -58,6 +64,17 @@ class PushNotificationService {
         ),
       );
     });
+
+    // App was backgrounded (not closed) and the user tapped the system-tray notification — the
+    // navigator already exists in this case, so this can route immediately.
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      routeForNotifyType(message.data['notifyType'] as String?);
+    });
+
+    // App was fully closed/killed and the tap is what launched it — the navigator isn't ready yet
+    // (this runs before runApp), so this only records the intent; _SplashGate acts on it once signed in.
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    pendingNotifyType = initialMessage?.data['notifyType'] as String?;
   }
 
   /// Safe to call even if the user isn't signed in yet or the network call fails — registration is

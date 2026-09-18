@@ -39,6 +39,15 @@ class _MyVisitsScreenState extends State<MyVisitsScreen> {
     }
   }
 
+  Future<void> _remind(VisitAssignment a) async {
+    try {
+      await _service.sendReminder(a.assignmentId);
+      if (mounted) showSnack(context, 'Reminder sent to admins.');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,7 +79,18 @@ class _MyVisitsScreenState extends State<MyVisitsScreen> {
                                 ),
                               ),
                               isThreeLine: true,
-                              trailing: StatusBadge(status: a.statusId),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  StatusBadge(status: a.statusId),
+                                  IconButton(
+                                    onPressed: () => _remind(a),
+                                    icon: const Icon(Icons.notifications_active_outlined, size: 20),
+                                    tooltip: 'Remind Admin',
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ],
+                              ),
                               onTap: () async {
                                 await Navigator.push(context, MaterialPageRoute(builder: (_) => TripMapScreen(assignment: a)));
                                 _load();

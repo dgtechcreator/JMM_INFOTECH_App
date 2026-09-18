@@ -9,6 +9,14 @@ class VisitService {
     return (res.data as List).cast<Map<String, dynamic>>().map(VisitAssignment.fromJson).toList();
   }
 
+  Future<void> sendReminder(int assignmentId) async {
+    final res = await _client.post('/EmployeeApp/SendVisitReminder', data: {'id': assignmentId});
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not send reminder.'));
+    }
+  }
+
   Future<TripDetail?> getTripDetail(int tripId) async {
     final res = await _client.get('/EmployeeApp/GetTripDetail', query: {'tripId': tripId});
     final list = (res.data as List).cast<Map<String, dynamic>>();

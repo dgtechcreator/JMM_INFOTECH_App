@@ -24,6 +24,14 @@ class TaskService {
     }
   }
 
+  Future<void> sendReminder(int id) async {
+    final res = await _client.post('/EmployeeApp/SendTaskReminder', data: {'id': id});
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not send reminder.'));
+    }
+  }
+
   // ---- Admin ----
 
   Future<List<Map<String, dynamic>>> getTaskList() async {

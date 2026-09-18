@@ -75,4 +75,12 @@ class LeaveService {
       throw ApiException(extractMessage(data, 'Could not reject leave.'));
     }
   }
+
+  Future<void> sendReminder(int id) async {
+    final res = await _client.post('/EmployeeApp/SendLeaveReminder', data: {'id': id});
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not send reminder.'));
+    }
+  }
 }
