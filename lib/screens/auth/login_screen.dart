@@ -77,6 +77,11 @@ class _LoginScreenState extends State<LoginScreen> {
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
+      // Unexpected (non-ApiException) errors only reach here now — AuthService.login() converts
+      // every known failure mode (bad response shape, timeout, connection error, server error) into
+      // a friendly ApiException above. Log the raw error for debugging but keep the user-facing
+      // message non-technical.
+      debugPrint('Unexpected login error: $e');
       setState(() => _error = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
