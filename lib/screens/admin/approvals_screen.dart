@@ -183,15 +183,6 @@ class _ReimbursementApprovalsTabState extends State<_ReimbursementApprovalsTab> 
     }
   }
 
-  Future<void> _remind(ReimbursementRecord r) async {
-    try {
-      await _service.sendReminder(r.reimbursementId);
-      if (mounted) showSnack(context, 'Reminder sent.');
-    } catch (e) {
-      if (mounted) showSnack(context, e.toString(), isError: true);
-    }
-  }
-
   Future<void> _markPaid(ReimbursementRecord r) async {
     final controller = TextEditingController(text: 'Bank Transfer');
     final mode = await showDialog<String>(
@@ -258,8 +249,6 @@ class _ReimbursementApprovalsTabState extends State<_ReimbursementApprovalsTab> 
                         Expanded(child: OutlinedButton(onPressed: () => _act(r, 'Rejected'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger), child: const Text('Reject'))),
                         const SizedBox(width: 10),
                         Expanded(child: ElevatedButton(onPressed: () => _act(r, 'Approved'), child: const Text('Approve'))),
-                        const SizedBox(width: 10),
-                        IconButton(onPressed: () => _remind(r), icon: const Icon(Icons.notifications_active_outlined), tooltip: 'Send Reminder'),
                       ],
                     ),
                   ] else if (r.statusId.toLowerCase() == 'approved') ...[

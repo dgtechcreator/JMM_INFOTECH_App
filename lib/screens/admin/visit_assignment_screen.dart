@@ -238,6 +238,15 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
     }
   }
 
+  Future<void> _remind(VisitAssignment a) async {
+    try {
+      await _visitService.sendReminder(a.assignmentId);
+      if (mounted) showSnack(context, 'Reminder sent.');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -351,6 +360,12 @@ class _VisitAssignmentScreenState extends State<VisitAssignmentScreen> with Sing
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   StatusBadge(status: a.statusId),
+                  if (a.statusId == 'Pending' || a.statusId == 'InProgress')
+                    IconButton(
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      tooltip: 'Remind Employee',
+                      onPressed: () => _remind(a),
+                    ),
                   IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.danger), onPressed: () => _delete(a)),
                 ],
               ),

@@ -59,7 +59,7 @@ class ReimbursementService {
     });
     final data = res.data as Map<String, dynamic>;
     if (data['status'] != 'success') {
-      throw ApiException('Could not update reimbursement.');
+      throw ApiException((data['status'] as String?) ?? 'Could not update reimbursement.');
     }
   }
 
@@ -70,7 +70,7 @@ class ReimbursementService {
     });
     final data = res.data as Map<String, dynamic>;
     if (data['status'] != 'success') {
-      throw ApiException('Could not mark reimbursement paid.');
+      throw ApiException((data['status'] as String?) ?? 'Could not mark reimbursement paid.');
     }
   }
 

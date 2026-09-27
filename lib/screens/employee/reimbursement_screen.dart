@@ -85,6 +85,15 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> with SingleTi
     }
   }
 
+  Future<void> _remind(ReimbursementRecord r) async {
+    try {
+      await _service.sendReminder(r.reimbursementId);
+      if (mounted) showSnack(context, 'Reminder sent to admins.');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
   Future<void> _confirmDelete(ReimbursementRecord r) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -218,6 +227,15 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> with SingleTi
                               children: [
                                 StatusBadge(status: r.statusId),
                                 if (r.canDelete) ...[
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => _remind(r),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(Icons.notifications_active_outlined, size: 20, color: AppColors.textSecondary),
+                                    ),
+                                  ),
                                   const SizedBox(width: 4),
                                   InkWell(
                                     onTap: () => _confirmDelete(r),
