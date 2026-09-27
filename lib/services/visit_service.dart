@@ -49,6 +49,24 @@ class VisitService {
     await _client.post('/EmployeeApp/SaveTripPing', data: {'tripId': tripId, 'lat': lat, 'lng': lng});
   }
 
+  // Battery-friendly tracking (2026-09-27): flushes a whole batch of locally-cached pings in one call —
+  // pingsJson is a JSON-encoded array of {"lat":..,"lng":..,"capturedOn":"..."} objects, each keeping the
+  // timestamp it was actually captured at on the phone. Best-effort by design (caller decides what to do
+  // with the cached rows on failure — normally just leave them cached and retry next cycle).
+  Future<void> saveTripPingsBatch(int tripId, String pingsJson) async {
+    await _client.post('/EmployeeApp/SaveTripPingsBatch', data: {'tripId': tripId, 'pingsJson': pingsJson});
+  }
+
+  // anomalyType: 'LocationOff' | 'NetworkOff'. Fired the instant the app detects GPS/connectivity dropped
+  // while a trip is InProgress — notifies admins server-side (once per open anomaly, not once per call).
+  Future<void> reportTripAnomaly(int tripId, String anomalyType) async {
+    await _client.post('/EmployeeApp/ReportTripAnomaly', data: {'tripId': tripId, 'anomalyType': anomalyType});
+  }
+
+  Future<void> resolveTripAnomaly(int tripId, String anomalyType) async {
+    await _client.post('/EmployeeApp/ResolveTripAnomaly', data: {'tripId': tripId, 'anomalyType': anomalyType});
+  }
+
   Future<void> updateTripTaskStatus(int tripId, String taskStatusId) async {
     final res = await _client.post('/EmployeeApp/UpdateTripTaskStatus', data: {'tripId': tripId, 'taskStatusId': taskStatusId});
     final data = res.data as Map<String, dynamic>;

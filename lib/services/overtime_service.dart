@@ -21,6 +21,14 @@ class OvertimeService {
     }
   }
 
+  Future<void> sendReminder(int otLogId) async {
+    final res = await _client.post('/EmployeeApp/SendOvertimeReminder', data: {'otLogId': otLogId});
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not send reminder.'));
+    }
+  }
+
   // ---- Admin ----
 
   Future<List<OvertimeLogRecord>> getOvertimeAdminList({String? search, String? statusId, int? employeeId}) async {

@@ -1,18 +1,24 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/location_helper.dart';
 import '../../models/models.dart';
+import '../../services/trip_tracking_service.dart';
 import '../../services/visit_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 
-/// Map + Start/End Trip for one visit assignment. While a trip is InProgress, sends a location ping
-/// every 5 minutes (mirrors the web My Visits tab's setInterval(sendPing, 5*60*1000) in
-/// Views/Shared/_EmployeeProfileTabs.cshtml) — foreground only; this screen must stay open/app in
-/// foreground for pings to keep going, same limitation as the web tab has while its page is open.
+/// Map + Start/End Trip for one visit assignment. Location tracking itself (2026-09-27 rework) now runs
+/// in TripTrackingService's background service — cached locally every ~20m of movement, flushed to the
+/// server every 20 minutes, keeps running even if this screen (or the whole app) is closed. This screen
+/// just starts/stops it and, while it's open, shows a live "you moved" marker plus a warning banner if
+/// location or internet drops — the actual admin-notification for that is the background service's job
+/// (see TripTrackingService's doc comment), this banner is purely so the employee sees it too and knows
+/// to turn it back on.
 class TripMapScreen extends StatefulWidget {
   const TripMapScreen({super.key, required this.assignment});
   final VisitAssignment assignment;
@@ -29,8 +35,13 @@ class _TripMapScreenState extends State<TripMapScreen> {
   String _tripStatus = 'Pending';
   String _taskStatus = 'Pending';
   LatLng? _myLocation;
-  Timer? _pingTimer;
   bool _busy = false;
+
+  StreamSubscription<Position>? _uiPositionSub;
+  StreamSubscription<ServiceStatus>? _locationWarningSub;
+  StreamSubscription<List<ConnectivityResult>>? _connectivityWarningSub;
+  bool _locationOffWarning = false;
+  bool _networkOffWarning = false;
 
   final _expenseDateController = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
   final _categoryController = TextEditingController();
@@ -48,13 +59,19 @@ class _TripMapScreenState extends State<TripMapScreen> {
     if (_tripId != null) {
       _tripStatus = 'InProgress';
       _loadTripDetail();
-      _startPingLoop();
+      // The trip was already InProgress when this screen opened (e.g. reopened after backgrounding) —
+      // the background service should already be tracking it from when it was started, this just makes
+      // sure (harmless no-op if it's already running for this trip).
+      TripTrackingService.startTracking(_tripId!);
+      _startUiWatchers();
     }
   }
 
   @override
   void dispose() {
-    _pingTimer?.cancel();
+    _uiPositionSub?.cancel();
+    _locationWarningSub?.cancel();
+    _connectivityWarningSub?.cancel();
     _categoryController.dispose();
     _descriptionController.dispose();
     _amountController.dispose();
@@ -71,20 +88,29 @@ class _TripMapScreenState extends State<TripMapScreen> {
     } catch (_) {}
   }
 
-  void _startPingLoop() {
-    _pingTimer?.cancel();
-    _sendPing();
-    _pingTimer = Timer.periodic(const Duration(minutes: 5), (_) => _sendPing());
-  }
+  // UI-only: moves the "me" marker on this screen's map and shows a warning banner while it's open. The
+  // actual caching/batch-upload/admin-notification work happens in TripTrackingService's background
+  // service regardless of whether this screen is even open — this is purely a nicer in-app experience
+  // layered on top, not a second copy of the tracking logic.
+  void _startUiWatchers() {
+    _uiPositionSub?.cancel();
+    _uiPositionSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 20),
+    ).listen((pos) {
+      if (!mounted) return;
+      setState(() => _myLocation = LatLng(pos.latitude, pos.longitude));
+      _mapController?.animateCamera(CameraUpdate.newLatLng(LatLng(pos.latitude, pos.longitude)));
+    });
 
-  Future<void> _sendPing() async {
-    final (lat, lng) = await LocationHelper.tryGetLatLng();
-    if (lat == null || lng == null || _tripId == null) return;
-    if (mounted) setState(() => _myLocation = LatLng(lat, lng));
-    _mapController?.animateCamera(CameraUpdate.newLatLng(LatLng(lat, lng)));
-    try {
-      await _service.saveTripPing(_tripId!, lat, lng);
-    } catch (_) {}
+    _locationWarningSub?.cancel();
+    _locationWarningSub = Geolocator.getServiceStatusStream().listen((status) {
+      if (mounted) setState(() => _locationOffWarning = status != ServiceStatus.enabled);
+    });
+
+    _connectivityWarningSub?.cancel();
+    _connectivityWarningSub = Connectivity().onConnectivityChanged.listen((results) {
+      if (mounted) setState(() => _networkOffWarning = results.isEmpty || results.contains(ConnectivityResult.none));
+    });
   }
 
   Future<void> _startTrip() async {
@@ -98,8 +124,12 @@ class _TripMapScreenState extends State<TripMapScreen> {
         _tripStatus = 'InProgress';
         if (lat != null && lng != null) _myLocation = LatLng(lat, lng);
       });
-      _startPingLoop();
-      showSnack(context, 'Trip started.');
+      if (_tripId != null) {
+        await TripTrackingService.startTracking(_tripId!);
+        _startUiWatchers();
+      }
+      if (!mounted) return;
+      showSnack(context, 'Trip started. Location tracking will keep running even if you close the app.');
     } catch (e) {
       if (mounted) showSnack(context, e.toString(), isError: true);
     } finally {
@@ -124,9 +154,16 @@ class _TripMapScreenState extends State<TripMapScreen> {
     try {
       final (lat, lng) = await LocationHelper.tryGetLatLng();
       await _service.endTrip(_tripId!, lat, lng);
-      _pingTimer?.cancel();
+      await TripTrackingService.stopTracking();
+      await _uiPositionSub?.cancel();
+      await _locationWarningSub?.cancel();
+      await _connectivityWarningSub?.cancel();
       if (!mounted) return;
-      setState(() => _tripStatus = 'Completed');
+      setState(() {
+        _tripStatus = 'Completed';
+        _locationOffWarning = false;
+        _networkOffWarning = false;
+      });
       showSnack(context, 'Trip completed.');
     } catch (e) {
       if (mounted) showSnack(context, e.toString(), isError: true);
@@ -207,6 +244,28 @@ class _TripMapScreenState extends State<TripMapScreen> {
                     icon: const Icon(Icons.navigation_outlined),
                     label: _busy ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Start Trip'),
                     onPressed: _busy ? null : _startTrip,
+                  ),
+                if (_tripStatus == 'InProgress' && (_locationOffWarning || _networkOffWarning))
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.danger)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _locationOffWarning && _networkOffWarning
+                                ? 'Location and internet are off. Please turn both back on — your admin has been notified.'
+                                : _locationOffWarning
+                                    ? 'Location is off. Please turn it back on — your admin has been notified.'
+                                    : 'No internet connection. Please reconnect — your admin will be notified if this continues.',
+                            style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 if (_tripStatus == 'InProgress') ...[
                   Row(

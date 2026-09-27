@@ -8,10 +8,26 @@
          only allows requesting a permission that's actually declared here. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Lets trip tracking (TripTrackingService) keep getting location updates while the app is
+         backgrounded or fully closed — Android 10+ (API 29) requires this as a *separate* grant from
+         ACCESS_FINE_LOCATION, requested at runtime only after the foreground grant, same two-step flow
+         every background-location app needs. Without it, the background service's Geolocator stream
+         simply stops producing updates once the app leaves the foreground, silently. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- Required for flutter_background_service's Android foreground service (trip tracking) to run at
+         all on API 28+, and specifically as a "location" type service on API 34+ (Android 14) — without
+         the typed permission, starting a location-type foreground service throws SecurityException. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Required on Android 13+ (API 33) to show any notification at all — without this,
          firebase_messaging's runtime permission request silently fails the same way geolocator's would
-         without ACCESS_FINE_LOCATION above. -->
+         without ACCESS_FINE_LOCATION above. Also covers the persistent "Trip in progress" notification
+         flutter_background_service's foreground mode requires while a trip is active. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lets the background trip-tracking service avoid being paused by the CPU sleeping between GPS
+         fixes — flutter_background_service's own Android implementation requests this internally, but it
+         still needs to be declared here to actually be granted. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
         android:label="JMM InfoTech"
         android:name="${applicationName}"
@@ -55,6 +71,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- flutter_background_service's own foreground service (TripTrackingService) — explicit
+             foregroundServiceType="location" is required on Android 14+ (API 34) for any foreground
+             service that reports location, matching the FOREGROUND_SERVICE_LOCATION permission above. -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

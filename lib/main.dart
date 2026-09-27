@@ -9,11 +9,13 @@ import 'screens/auth/login_screen.dart';
 import 'screens/employee/employee_shell.dart';
 import 'services/notification_router.dart';
 import 'services/push_notification_service.dart';
+import 'services/trip_tracking_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PushNotificationService.initialize();
+  await TripTrackingService.initialize();
   runApp(const JmmEmployeeApp());
 }
 

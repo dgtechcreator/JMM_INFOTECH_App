@@ -57,15 +57,6 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
-  Future<void> _remind(TaskItem task) async {
-    try {
-      await _service.sendReminder(task.id);
-      if (mounted) showSnack(context, 'Reminder sent to admins.');
-    } catch (e) {
-      if (mounted) showSnack(context, e.toString(), isError: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,14 +91,6 @@ class _TasksScreenState extends State<TasksScreen> {
               children: [
                 Expanded(child: Text(task.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
                 StatusBadge(status: task.status),
-                IconButton(
-                  onPressed: () => _remind(task),
-                  icon: const Icon(Icons.notifications_active_outlined, size: 20),
-                  tooltip: 'Remind Admin',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
               ],
             ),
             const SizedBox(height: 6),

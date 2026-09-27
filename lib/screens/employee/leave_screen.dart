@@ -63,6 +63,15 @@ class _LeaveScreenState extends State<LeaveScreen> {
     }
   }
 
+  Future<void> _remind(LeaveRecord r) async {
+    try {
+      await _service.sendMyReminder(r.id);
+      if (mounted) showSnack(context, 'Reminder sent to admins.');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
   List<LeaveRecord> get _visibleHistory =>
       _showPendingOnly ? _history.where((r) => r.statusId.toLowerCase() == 'pending').toList() : _history;
 
@@ -169,13 +178,22 @@ class _LeaveScreenState extends State<LeaveScreen> {
                   Text('${r.totalDays} day(s) · ${r.description}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   if (r.statusId.toLowerCase() == 'pending') ...[
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton(
-                        onPressed: () => _cancel(r),
-                        style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger), minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 12)),
-                        child: const Text('Withdraw'),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _remind(r),
+                          icon: const Icon(Icons.notifications_active_outlined, size: 16),
+                          label: const Text('Remind Admin'),
+                          style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 12)),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: () => _cancel(r),
+                          style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger), minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 12)),
+                          child: const Text('Withdraw'),
+                        ),
+                      ],
                     ),
                   ],
                 ],

@@ -54,6 +54,15 @@ class _OvertimeScreenState extends State<OvertimeScreen> with SingleTickerProvid
     }
   }
 
+  Future<void> _remind(OvertimeLogRecord r) async {
+    try {
+      await _service.sendReminder(r.otLogId);
+      if (mounted) showSnack(context, 'Reminder sent to admins.');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
   Future<void> _submit() async {
     final hours = double.tryParse(_hoursController.text.trim());
     if (hours == null || hours <= 0) {
@@ -172,6 +181,18 @@ class _OvertimeScreenState extends State<OvertimeScreen> with SingleTickerProvid
                   if ((r.description ?? '').isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(r.description!, style: const TextStyle(fontSize: 13)),
+                  ],
+                  if (r.statusId.toLowerCase() == 'pending') ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _remind(r),
+                        icon: const Icon(Icons.notifications_active_outlined, size: 16),
+                        label: const Text('Remind Admin'),
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 12)),
+                      ),
+                    ),
                   ],
                 ],
               ),

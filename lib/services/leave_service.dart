@@ -42,6 +42,16 @@ class LeaveService {
     }
   }
 
+  // Employee-initiated reminder — nudges every admin about one of the employee's own pending leave
+  // requests. Distinct from sendReminder below (admin-initiated, nudges the employee instead).
+  Future<void> sendMyReminder(int id) async {
+    final res = await _client.post('/EmployeeApp/SendMyLeaveReminder', data: {'id': id});
+    final data = res.data as Map<String, dynamic>;
+    if (data['message'] != 'success') {
+      throw ApiException(extractMessage(data, 'Could not send reminder.'));
+    }
+  }
+
   // ---- Admin ----
 
   Future<List<Map<String, dynamic>>> getPendingLeaveList() async {
