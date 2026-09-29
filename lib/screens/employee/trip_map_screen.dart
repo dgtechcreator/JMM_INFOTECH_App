@@ -14,7 +14,7 @@ import '../../widgets/common.dart';
 
 /// Map + Start/End Trip for one visit assignment. Location tracking itself (2026-09-27 rework) now runs
 /// in TripTrackingService's background service — cached locally every ~20m of movement, flushed to the
-/// server every 20 minutes, keeps running even if this screen (or the whole app) is closed. This screen
+/// server every 10 minutes, keeps running even if this screen (or the whole app) is closed. This screen
 /// just starts/stops it and, while it's open, shows a live "you moved" marker plus a warning banner if
 /// location or internet drops — the actual admin-notification for that is the background service's job
 /// (see TripTrackingService's doc comment), this banner is purely so the employee sees it too and knows
@@ -61,8 +61,11 @@ class _TripMapScreenState extends State<TripMapScreen> {
       _loadTripDetail();
       // The trip was already InProgress when this screen opened (e.g. reopened after backgrounding) —
       // the background service should already be tracking it from when it was started, this just makes
-      // sure (harmless no-op if it's already running for this trip).
-      TripTrackingService.startTracking(_tripId!);
+      // sure (harmless no-op if it's already running for this trip). Also re-checks permission here, not
+      // just in _startTrip(): a reinstall/update resets Android's granted location permission back to
+      // denied, and without this the background service would keep silently failing to start with no way
+      // for the employee to notice — this is exactly what a reopen after a "Disconnected" flag should fix.
+      _ensureTrackingPermissions().then((_) => TripTrackingService.startTracking(_tripId!));
       _startUiWatchers();
     }
   }
@@ -113,9 +116,49 @@ class _TripMapScreenState extends State<TripMapScreen> {
     });
   }
 
+  /// Explicitly asks for background ("Allow all the time") location, not just foreground — without this,
+  /// the background service's location stream silently stops the moment the app leaves the foreground on
+  /// Android 10+ (API 29+), which is exactly why live tracking, the batch sync, and the network/location
+  /// off alerts never fired: nothing was requesting it, only the punch-in/out foreground check ran.
+  Future<bool> _ensureTrackingPermissions() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        showSnack(context, 'Location permission is required to start a trip. Please allow it and try again.', isError: true);
+      }
+      return false;
+    }
+    if (permission == LocationPermission.whileInUse) {
+      // Re-requesting after the foreground grant is what triggers Android's "Allow all the time" upgrade
+      // prompt on API 29; on API 30+ Android no longer offers it in-dialog and this call is a no-op, so we
+      // warn below instead of silently tracking only while the screen is open.
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission != LocationPermission.always && mounted) {
+      showSnack(
+        context,
+        'Background location isn\'t fully allowed — tracking may pause once you leave the app. '
+        'Open Settings > Apps > JMM InfoTech > Permissions > Location and choose "Allow all the time" for continuous tracking.',
+        isError: true,
+      );
+    }
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) showSnack(context, 'Turn on device location (GPS) to start the trip.', isError: true);
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _startTrip() async {
     setState(() => _busy = true);
     try {
+      if (!await _ensureTrackingPermissions()) {
+        setState(() => _busy = false);
+        return;
+      }
       final (lat, lng) = await LocationHelper.tryGetLatLng();
       final result = await _service.startTrip(widget.assignment.assignmentId, lat, lng);
       if (!mounted) return;

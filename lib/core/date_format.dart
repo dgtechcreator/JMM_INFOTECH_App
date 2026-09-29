@@ -25,3 +25,15 @@ String formatTime(String? raw) {
   if (dt == null) return raw;
   return DateFormat('h:mm a').format(dt.toLocal());
 }
+
+/// "Today" / "Yesterday" / "30 Sep 2026" — for date-wise section dividers (e.g. the notifications list).
+/// [d] must already be in local time (call `.toLocal()` before passing it in).
+String dateGroupLabel(DateTime d) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  final day = DateTime(d.year, d.month, d.day);
+  if (day == today) return 'Today';
+  if (day == yesterday) return 'Yesterday';
+  return DateFormat('d MMM yyyy').format(d);
+}

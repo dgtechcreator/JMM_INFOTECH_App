@@ -52,6 +52,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     await routeForNotifyType(item.notifyType);
   }
 
+  // Rows already arrive latest-first from the API (ORDER BY CreatedOn DESC, unaffected by read state), so
+  // grouping consecutively here — a String entry is a date-section header, a NotificationItem is a row —
+  // is safe without re-sorting.
+  List<Object> _groupedEntries() {
+    final entries = <Object>[];
+    String? lastGroup;
+    for (final item in _items) {
+      final dt = DateTime.tryParse(item.createdOn)?.toLocal();
+      final group = dt != null ? dateGroupLabel(dt) : 'Earlier';
+      if (group != lastGroup) {
+        entries.add(group);
+        lastGroup = group;
+      }
+      entries.add(item);
+    }
+    return entries;
+  }
+
   IconData _iconFor(String? type) {
     switch (type) {
       case 'Leave':
@@ -86,46 +104,63 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ? const EmptyState(message: 'No notifications yet.', icon: Icons.notifications_none_rounded)
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final item = _items[i];
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () => _onTap(item),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: item.isRead ? AppColors.surface : AppColors.primarySoft,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(_iconFor(item.notifyType), color: AppColors.primary),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
+                  child: Builder(
+                    builder: (context) {
+                      final entries = _groupedEntries();
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: entries.length,
+                        itemBuilder: (context, i) {
+                          final entry = entries[i];
+                          if (entry is String) {
+                            return Padding(
+                              padding: EdgeInsets.only(top: i == 0 ? 0 : 12, bottom: 8),
+                              child: Text(
+                                entry.toUpperCase(),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 0.5),
+                              ),
+                            );
+                          }
+                          final item = entry as NotificationItem;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => _onTap(item),
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: item.isRead ? AppColors.surface : AppColors.primarySoft,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    if (item.message != null && item.message!.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(item.message!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                                    ],
-                                    const SizedBox(height: 6),
-                                    Text(formatDateTime(item.createdOn), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                    Icon(_iconFor(item.notifyType), color: AppColors.primary),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                          if (item.message != null && item.message!.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(item.message!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                                          ],
+                                          const SizedBox(height: 6),
+                                          Text(formatTime(item.createdOn), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                        ],
+                                      ),
+                                    ),
+                                    if (!item.isRead)
+                                      Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
                                   ],
                                 ),
                               ),
-                              if (!item.isRead)
-                                Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

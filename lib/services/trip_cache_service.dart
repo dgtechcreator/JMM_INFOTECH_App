@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// rework: geolocator's distance-filtered stream (see TripTrackingService) only fires a new reading every
 /// ~20m of actual movement, and each reading is written here immediately (fast, no network call, no
 /// battery cost beyond the GPS fix itself) rather than posted to the server one at a time. A periodic
-/// timer flushes everything cached for the active trip in one batch call roughly every 20 minutes, which
+/// timer flushes everything cached for the active trip in one batch call roughly every 10 minutes, which
 /// is what actually saves battery and avoids hammering the server — dozens of individual small pings
 /// become one request.
 class CachedPing {

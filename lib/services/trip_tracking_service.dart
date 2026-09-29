@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../core/api_client.dart';
@@ -18,7 +19,8 @@ import 'visit_service.dart';
 ///   (`LocationSettings.distanceFilter`), not on a fixed timer — this is the actual battery saving, far
 ///   more than batching alone: no movement (parked, indoors, stationary) means no GPS wake-ups at all.
 /// - Each reading goes into a local SQLite cache (TripCacheService) immediately — fast, free, no network.
-/// - Every 20 minutes, the whole cache for the active trip is flushed to the server in one batch call
+/// - Every 10 minutes (tightened from the original 20 on 2026-09-29 for fresher admin visibility), the
+///   whole cache for the active trip is flushed to the server in one batch call
 ///   (SaveTripPingsBatch) — turns what would be dozens of individual requests into one.
 /// - Runs inside `flutter_background_service`'s background isolate (Android foreground service / iOS
 ///   background modes), so it keeps working after the user backgrounds or fully closes the app — the
@@ -47,18 +49,32 @@ import 'visit_service.dart';
 /// behavior (Xiaomi/Oppo/Vivo/Samsung aggressively kill background work unless the user manually
 /// whitelists the app — no app can fully prevent this on its own), needs real field testing before relying
 /// on it for live tracking.
+@pragma('vm:entry-point')
 class TripTrackingService {
-  static const _flushInterval = Duration(minutes: 20);
+  static const _flushInterval = Duration(minutes: 10);
   static const _distanceFilterMeters = 20;
 
+  static const _channelId = 'trip_tracking_channel';
+
   static Future<void> initialize() async {
+    // flutter_background_service does NOT create its own notification channel — its docs are explicit
+    // that the app must create it before calling configure(). This was missing entirely, which is why
+    // every real-device attempt to start a trip crashed the whole app immediately with
+    // "RemoteServiceException: Bad notification for startForeground": Android rejected the foreground
+    // notification because the channel it referenced didn't exist. Same plugin/pattern already used for
+    // push notifications in push_notification_service.dart.
+    const channel = AndroidNotificationChannel(_channelId, 'Field Visit Tracking', importance: Importance.low);
+    await FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     final service = FlutterBackgroundService();
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
         autoStart: false,
         isForegroundMode: true,
-        notificationChannelId: 'trip_tracking_channel',
+        notificationChannelId: _channelId,
         initialNotificationTitle: 'JMM Field Visit',
         initialNotificationContent: 'Ready',
         foregroundServiceNotificationId: 9001,
@@ -104,7 +120,13 @@ class TripTrackingService {
     bool locationWasOn = true;
     bool networkWasOn = true;
 
-    await ApiClient.instance.loadPersistedToken();
+    try {
+      await ApiClient.instance.loadPersistedToken();
+    } catch (e) {
+      // Left visible in logcat (tag "flutter") rather than swallowed — a live device session spent a long
+      // time debugging blind because every failure point here used to be a silent `catch (_) {}`.
+      print('[TripTracking] loadPersistedToken failed: $e');
+    }
     final visitService = VisitService();
 
     Future<void> flush() async {
@@ -118,8 +140,8 @@ class TripTrackingService {
             .toList());
         await visitService.saveTripPingsBatch(tripId, json);
         await TripCacheService.clearSynced(tripId, pending.map((p) => p.id!).whereType<int>().toList());
-      } catch (_) {
-        // Left cached — picked up again on the next cycle. Never dropped, worst case just late.
+      } catch (e) {
+        print('[TripTracking] flush failed, left cached for next cycle: $e');
       }
     }
 
@@ -147,18 +169,30 @@ class TripTrackingService {
         );
       }
 
+      // True until the first position of this startTrip event lands, so that reading is flushed the
+      // instant it arrives instead of waiting for the next periodic cycle. Positions only start arriving
+      // asynchronously a moment after subscribing (the GPS fix itself takes a beat), so calling flush()
+      // synchronously right after subscribing — the old approach — almost always raced ahead of it and
+      // flushed nothing; the app-open/trip-resume case (e.g. after a "Disconnected" flag) would then sit
+      // unresolved for a full cycle even though the phone was reachable the whole time.
+      var firstReadingPending = true;
+
       await positionSub?.cancel();
       positionSub = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: _distanceFilterMeters),
       ).listen((pos) {
         final id = activeTripId;
-        if (id != null) {
-          TripCacheService.addPing(id, pos.latitude, pos.longitude, DateTime.now());
+        if (id == null) return;
+        TripCacheService.addPing(id, pos.latitude, pos.longitude, DateTime.now());
+        if (firstReadingPending) {
+          firstReadingPending = false;
+          flush();
         }
+      }, onError: (e) {
+        print('[TripTracking] position stream error: $e');
       });
 
       flushTimer?.cancel();
-      flush(); // also flush right away so the very first reading doesn't wait the full 20 minutes
       flushTimer = Timer.periodic(_flushInterval, (_) => flush());
 
       await locationServiceSub?.cancel();
