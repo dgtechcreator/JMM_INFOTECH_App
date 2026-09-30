@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/profile_avatar.dart';
 import '../auth/login_screen.dart';
 import '../employee/employee_shell.dart';
 import '../employee/notifications_screen.dart';
 import 'admin_profile_screen.dart';
 import 'approvals_screen.dart';
+import 'employee_login_activity_screen.dart';
 import 'employees_screen.dart';
 import 'live_tracking_screen.dart';
 import 'task_assignment_screen.dart';
 import 'team_attendance_screen.dart';
 import 'visit_assignment_screen.dart';
+import 'wfh_admin_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -115,17 +117,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         children: [
                           GestureDetector(
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminProfileScreen())),
-                            child: CircleAvatar(
-                              radius: 22,
-                              backgroundColor: AppColors.primarySoft,
-                              backgroundImage: resolvePhotoUrl(session.photoUrl) != null ? NetworkImage(resolvePhotoUrl(session.photoUrl)!) : null,
-                              child: resolvePhotoUrl(session.photoUrl) == null
-                                  ? Text(
-                                      session.userName.isNotEmpty ? session.userName[0].toUpperCase() : '?',
-                                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                                    )
-                                  : null,
-                            ),
+                            child: SessionAvatar(name: session.userName, radius: 22),
                           ),
                           const SizedBox(width: 12),
                           Expanded(child: Text('Welcome back, ${session.userName}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
@@ -156,6 +148,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             'Pending Reimb.', '${_summary?.pendingReimbursementCount ?? 0}', AppColors.danger, Icons.receipt_long_outlined,
                             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalsScreen(initialTabIndex: 1))),
                           ),
+                          _tappableStat(
+                            'Pending WFH', '${_summary?.pendingWfhCount ?? 0}', AppColors.info, Icons.home_work_outlined,
+                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalsScreen(initialTabIndex: 3))),
+                          ),
+                          _tappableStat(
+                            'On WFH Today', '${_summary?.wfhToday ?? 0}', AppColors.primaryDark, Icons.laptop_chromebook_outlined,
+                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WfhAdminScreen(initialTabIndex: 1))),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -165,6 +165,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _quickAction(context, 'Assign a Task', Icons.playlist_add_check_outlined, AppColors.success, const TaskAssignmentScreen()),
                       _quickAction(context, 'Field Visits', Icons.map_outlined, AppColors.info, const VisitAssignmentScreen()),
                       _quickAction(context, 'Live Tracking', Icons.navigation_outlined, AppColors.warning, const LiveTrackingScreen()),
+                      _quickAction(context, 'Work From Home', Icons.home_work_outlined, AppColors.info, const WfhAdminScreen()),
+                      _quickAction(context, 'Login Activity', Icons.admin_panel_settings_outlined, AppColors.danger, const EmployeeLoginActivityScreen()),
                     ],
                   ),
                 ),

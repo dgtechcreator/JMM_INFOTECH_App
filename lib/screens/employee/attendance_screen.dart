@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/wfh_day_card.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -73,8 +74,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final counts = <String, int>{};
+    var wfhDays = 0;
     for (final r in _records) {
       counts[r.statusId] = (counts[r.statusId] ?? 0) + 1;
+      if (r.isWfh && r.punchInTime != null) wfhDays++;
     }
 
     return Scaffold(
@@ -95,6 +98,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             SizedBox(width: 130, child: StatCard(label: 'Present', value: '${counts['Present'] ?? 0}', color: AppColors.present)),
                             const SizedBox(width: 10),
                             SizedBox(width: 130, child: StatCard(label: 'Half Day', value: '${counts['HalfDay'] ?? 0}', color: AppColors.halfDay)),
+                            const SizedBox(width: 10),
+                            SizedBox(width: 130, child: StatCard(label: 'WFH Days', value: '$wfhDays', color: AppColors.info)),
                             const SizedBox(width: 10),
                             SizedBox(width: 130, child: StatCard(label: 'On Leave', value: '${counts['OnLeave'] ?? 0}', color: AppColors.onLeave)),
                             const SizedBox(width: 10),
@@ -155,7 +160,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        title: Text(r.attendanceDate),
+        title: Row(children: [Text(r.attendanceDate), const SizedBox(width: 8), if (r.isWfh) const WorkModeChip(mode: 'WFH')]),
         subtitle: Text('${formatTime(r.punchInTime)}  →  ${formatTime(r.punchOutTime)}  ·  ${r.workedMinutes} min'),
         trailing: StatusBadge(status: r.statusId),
       ),

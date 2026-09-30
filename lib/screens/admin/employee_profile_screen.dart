@@ -9,6 +9,8 @@ import '../../services/reimbursement_service.dart';
 import '../../services/salary_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/wfh_day_card.dart';
+import 'employee_login_activity_screen.dart';
 import 'employee_salary_screen.dart';
 
 /// Full admin-side profile for one employee — attendance, overtime, daily work logs, reimbursements
@@ -125,6 +127,16 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.employeeName),
+        actions: [
+          IconButton(
+            tooltip: 'Login activity',
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => EmployeeLoginActivityScreen(employeeId: widget.employeeId, employeeName: widget.employeeName)),
+            ),
+          ),
+        ],
         bottom: _loading || _error != null
             ? null
             : TabBar(
@@ -189,7 +201,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              title: Text(a.attendanceDate, style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Row(children: [Text(a.attendanceDate, style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(width: 8), if (a.isWfh) const WorkModeChip(mode: 'WFH')]),
               subtitle: Text('${a.punchInTime ?? '--:--'} → ${a.punchOutTime ?? '--:--'} · ${(a.workedMinutes / 60.0).toStringAsFixed(1)} hrs${a.remarks != null && a.remarks!.isNotEmpty ? '\n${a.remarks}' : ''}'),
               isThreeLine: a.remarks != null && a.remarks!.isNotEmpty,
               trailing: StatusBadge(status: a.statusId),

@@ -82,6 +82,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.fingerprint;
       case 'Task':
         return Icons.checklist_outlined;
+      case 'WFH':
+        return Icons.home_work_outlined;
+      case 'Security':
+        return Icons.shield_outlined;
+      case 'Visit':
+        return Icons.map_outlined;
+      case 'Overtime':
+        return Icons.timer_outlined;
       default:
         return Icons.notifications_outlined;
     }

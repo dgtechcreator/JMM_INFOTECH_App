@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/common.dart';
+import '../../widgets/profile_avatar.dart';
 import '../auth/login_screen.dart';
 import '../employee/employee_shell.dart';
+import '../profile/change_password_screen.dart';
+import '../profile/edit_profile_screen.dart';
+import '../profile/login_activity_screen.dart';
+import '../profile/notification_settings_screen.dart';
 
 /// Admin-side counterpart to employee/profile_screen.dart — was missing entirely (AdminShell had no
-/// Profile tab at all), so an Admin login had no way to view their own info, change their photo, or log
-/// out except the bare "Logout" popup-menu item on the dashboard. Reuses the same ProfileService
-/// (GetMyProfile/UploadProfilePhoto are already generic per-token, not employee-specific).
+/// Profile tab at all), so an Admin login had no way to view their own info, change their photo, or log out
+/// except the bare "Logout" popup-menu item on the dashboard. Reuses the same ProfileService
+/// (GetMyProfile/UploadProfilePhoto are already generic per-token, not employee-specific), and the same
+/// shared avatar (full-screen preview + camera/gallery), edit-profile, password and login-activity screens.
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
 
@@ -23,16 +26,19 @@ class AdminProfileScreen extends StatefulWidget {
 
 class _AdminProfileScreenState extends State<AdminProfileScreen> {
   final _service = ProfileService();
-  final _picker = ImagePicker();
   ProfileDetail? _profile;
-  bool _uploadingPhoto = false;
 
   @override
   void initState() {
     super.initState();
-    _service.getMyProfile().then((p) {
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final p = await _service.getMyProfile();
       if (mounted) setState(() => _profile = p);
-    }).catchError((_) {});
+    } catch (_) {}
   }
 
   Future<void> _logout() async {
@@ -41,29 +47,20 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
   }
 
-  Future<void> _changePhoto() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 85);
-    if (picked == null) return;
-    setState(() => _uploadingPhoto = true);
-    try {
-      final bytes = await picked.readAsBytes();
-      final photoUrl = await _service.uploadPhoto(bytes, picked.name);
-      if (!mounted) return;
-      final bustedUrl = '$photoUrl?v=${DateTime.now().millisecondsSinceEpoch}';
-      await context.read<Session>().updatePhotoUrl(bustedUrl);
-      if (!mounted) return;
-      showSnack(context, 'Photo updated.');
-    } catch (e) {
-      if (mounted) showSnack(context, e.toString(), isError: true);
-    } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
-    }
+  Future<void> _editProfile() async {
+    final profile = _profile;
+    if (profile == null) return;
+    final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => EditProfileScreen(profile: profile)));
+    if (changed == true) _loadProfile();
   }
+
+  void _open(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
   @override
   Widget build(BuildContext context) {
     final session = context.watch<Session>();
-    final photoUrl = resolvePhotoUrl(session.photoUrl ?? _profile?.photoUrl);
+    final profile = _profile;
+    final name = profile != null && profile.fullName.isNotEmpty ? profile.fullName : session.userName;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -72,43 +69,14 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: _uploadingPhoto ? null : _changePhoto,
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppColors.primarySoft,
-                      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                      child: _uploadingPhoto
-                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryDark))
-                          : photoUrl == null
-                              ? Text(
-                                  session.userName.isNotEmpty ? session.userName[0].toUpperCase() : '?',
-                                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                                )
-                              : null,
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, border: Border.fromBorderSide(BorderSide(color: Colors.white, width: 2))),
-                        child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              ProfileAvatar(name: name, radius: 36),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_profile != null ? '${_profile!.firstName} ${_profile!.lastName}'.trim() : session.userName,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    if (_profile?.email.isNotEmpty ?? false) Text(_profile!.email, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    if (profile?.email.isNotEmpty ?? false) Text(profile!.email, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                     const SizedBox(height: 2),
                     const Text('Admin', style: TextStyle(color: AppColors.primaryDark, fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
@@ -116,8 +84,15 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          if (_profile != null) ...[
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: profile == null ? null : _editProfile,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Edit profile'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+          ),
+          const SizedBox(height: 20),
+          if (profile != null) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -126,15 +101,29 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                   children: [
                     const Text('Contact details', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                     const SizedBox(height: 12),
-                    _detailRow('Username', _profile!.username),
-                    _detailRow('Contact', _profile!.contact),
-                    _detailRow('Address', _profile!.address),
+                    _detailRow('Username', profile.username),
+                    _detailRow('Mobile', profile.contact),
+                    _detailRow('Address', profile.address),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
           ],
+          const Text('Account & security', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              children: [
+                _securityTile(Icons.lock_outline, 'Change password', 'Sign-in password for this account', () => _open(const ChangePasswordScreen())),
+                const Divider(height: 1),
+                _securityTile(Icons.devices_other_outlined, 'My login activity', 'Phones signed in to your account, and when', () => _open(const LoginActivityScreen())),
+                const Divider(height: 1),
+                _securityTile(Icons.notifications_active_outlined, 'Notification settings', 'Check that alerts reach this phone', () => _open(const NotificationSettingsScreen())),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           if (session.employeeId != 0) ...[
             Card(
               color: AppColors.primarySoft,
@@ -157,6 +146,16 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _securityTile(IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.primaryDark),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 

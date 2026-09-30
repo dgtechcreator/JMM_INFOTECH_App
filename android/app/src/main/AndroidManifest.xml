@@ -96,5 +96,11 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Profile photo "Take a photo" (image_picker launches the system camera app). Android 11+ package
+             visibility hides other apps from this one unless the intent is declared here — without it the
+             camera option can report "no camera app" on some phones even though one is installed. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
+        </intent>
     </queries>
 </manifest>

@@ -35,6 +35,7 @@ class AttendanceRecord {
     required this.statusId,
     required this.remarks,
     required this.isRegularized,
+    this.workMode = 'Office',
   });
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> j) => AttendanceRecord(
@@ -46,6 +47,7 @@ class AttendanceRecord {
         statusId: _asString(j['StatusID']),
         remarks: j['Remarks'] as String?,
         isRegularized: _asBool(j['IsRegularized']),
+        workMode: _asString(j['WorkMode'], 'Office'),
       );
 
   final int attendanceId;
@@ -56,6 +58,10 @@ class AttendanceRecord {
   final String statusId;
   final String? remarks;
   final bool isRegularized;
+
+  /// 'Office' or 'WFH' — how that day's attendance was marked (Work From Home module).
+  final String workMode;
+  bool get isWfh => workMode == 'WFH';
 }
 
 class LeaveTypeOption {
@@ -418,6 +424,7 @@ class ActiveTrip {
     required this.latestLng,
     required this.latestCapturedOn,
     required this.progressPct,
+    this.anomalyStatus,
   });
 
   factory ActiveTrip.fromJson(Map<String, dynamic> j) => ActiveTrip(
@@ -431,6 +438,7 @@ class ActiveTrip {
         latestLng: j['LatestLng'] != null ? _asDouble(j['LatestLng']) : null,
         latestCapturedOn: j['LatestCapturedOn'] as String?,
         progressPct: j['ProgressPct'] != null ? _asInt(j['ProgressPct']) : null,
+        anomalyStatus: j['AnomalyStatus'] as String?,
       );
 
   final int tripId;
@@ -443,6 +451,9 @@ class ActiveTrip {
   final double? latestLng;
   final String? latestCapturedOn;
   final int? progressPct;
+
+  /// LocationOff | NetworkOff | Disconnected while the trip has an open anomaly, else null.
+  final String? anomalyStatus;
 }
 
 class OvertimeLogRecord {
@@ -482,6 +493,8 @@ class AdminDashboardSummary {
     required this.punchedOutToday,
     required this.pendingReimbursementCount,
     required this.pendingLeaveCount,
+    this.pendingWfhCount = 0,
+    this.wfhToday = 0,
   });
 
   factory AdminDashboardSummary.fromJson(Map<String, dynamic> j) => AdminDashboardSummary(
@@ -490,6 +503,8 @@ class AdminDashboardSummary {
         punchedOutToday: _asInt(j['punchedOutToday']),
         pendingReimbursementCount: _asInt(j['pendingReimbursementCount']),
         pendingLeaveCount: _asInt(j['pendingLeaveCount']),
+        pendingWfhCount: _asInt(j['pendingWfhCount']),
+        wfhToday: _asInt(j['wfhToday']),
       );
 
   final int totalEmployees;
@@ -497,4 +512,8 @@ class AdminDashboardSummary {
   final int punchedOutToday;
   final int pendingReimbursementCount;
   final int pendingLeaveCount;
+  final int pendingWfhCount;
+
+  /// Of the people already punched in today, how many are working from home.
+  final int wfhToday;
 }

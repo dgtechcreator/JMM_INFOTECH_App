@@ -3,7 +3,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 import '../core/api_client.dart';
+import '../core/device_identity.dart';
 import 'notification_router.dart';
 
 const String _defaultChannelId = 'jmm_default_channel';
@@ -80,13 +83,21 @@ class PushNotificationService {
   /// Safe to call even if the user isn't signed in yet or the network call fails — registration is
   /// best-effort and retried on every app start / login, so a transient failure just means push
   /// notifications don't reach this device until the next successful call.
+  static bool _refreshListenerAttached = false;
+
   static Future<void> registerToken() async {
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
         await _sendTokenToServer(token);
       }
-      FirebaseMessaging.instance.onTokenRefresh.listen(_sendTokenToServer);
+      // Attach the rotation listener once per app run — registerToken() is called on every login, every app
+      // start and from the notification-settings test, and each call used to stack another listener (so one
+      // token rotation fired N duplicate registrations).
+      if (!_refreshListenerAttached) {
+        _refreshListenerAttached = true;
+        FirebaseMessaging.instance.onTokenRefresh.listen(_sendTokenToServer);
+      }
     } catch (e) {
       if (kDebugMode) print('Push token registration failed: $e');
     }
@@ -94,9 +105,46 @@ class PushNotificationService {
 
   static Future<void> _sendTokenToServer(String token) async {
     try {
-      await ApiClient.instance.post('/EmployeeApp/RegisterDeviceToken', data: {'token': token, 'platform': 'android'});
+      // deviceId lets the server retire this phone's OLD tokens: every reinstall / clear-data mints a new
+      // FCM token and the old one is dead for good — those dead rows used to pile up and (before the
+      // 2026-09-30 server fix) one of them sorting ahead of the live token silently blocked every push.
+      final device = await DeviceIdentity.load();
+      await ApiClient.instance.post('/EmployeeApp/RegisterDeviceToken', data: {'token': token, 'platform': 'android', 'deviceId': device.deviceId});
     } catch (_) {
       // Best-effort — see registerToken's doc comment.
     }
+  }
+
+  /// Whether the OS will actually show this app's notifications (Android 13+ runtime permission, or the
+  /// user/OEM having switched them off in Settings). `requestPermission()` only ever prompts once — after
+  /// a "Don't allow" the only way back is the system settings, so the UI needs to be able to tell.
+  static Future<bool> notificationsAllowed() async {
+    try {
+      return await Permission.notification.isGranted;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Asks for the permission if it can still be asked for; returns the final state.
+  static Future<bool> requestNotificationPermission() async {
+    try {
+      final status = await Permission.notification.request();
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// "Send me a test notification": the SERVER pushes to this account's registered phones and reports
+  /// FCM's real verdict, so a missing notification can be diagnosed in seconds (not registered / server
+  /// not configured / FCM rejected it / OS blocking it).
+  static Future<String> sendTestNotification() async {
+    final res = await ApiClient.instance.post('/EmployeeApp/SendTestNotification');
+    final data = res.data;
+    if (data is Map) {
+      return (data['detail'] ?? data['message'] ?? 'Done.').toString();
+    }
+    return 'Done.';
   }
 }

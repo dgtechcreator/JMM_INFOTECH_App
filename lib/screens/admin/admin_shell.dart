@@ -5,10 +5,12 @@ import 'admin_dashboard_screen.dart';
 import 'team_attendance_screen.dart';
 import 'approvals_screen.dart';
 import 'task_assignment_screen.dart';
+import 'employee_login_activity_screen.dart';
 import 'employees_screen.dart';
 import 'live_tracking_screen.dart';
 import 'payroll_screen.dart';
 import 'visit_assignment_screen.dart';
+import 'wfh_admin_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -76,6 +78,22 @@ class _AdminShellState extends State<AdminShell> {
         onTap: () {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveTrackingScreen()));
+        },
+      ),
+      QuickActionTile(
+        icon: Icons.home_work_outlined,
+        label: 'Work From Home',
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const WfhAdminScreen()));
+        },
+      ),
+      QuickActionTile(
+        icon: Icons.admin_panel_settings_outlined,
+        label: 'Login Activity',
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeLoginActivityScreen()));
         },
       ),
       QuickActionTile(

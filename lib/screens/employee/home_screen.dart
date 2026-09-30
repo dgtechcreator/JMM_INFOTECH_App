@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/api_client.dart';
 import '../../core/date_format.dart';
 import '../../core/location_helper.dart';
 import '../../core/session.dart';
@@ -9,9 +8,12 @@ import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/task_service.dart';
+import '../../services/wfh_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/profile_avatar.dart';
 import '../../widgets/swipe_button.dart';
+import '../../widgets/wfh_day_card.dart';
 import 'daily_log_screen.dart';
 import 'documents_screen.dart';
 import 'my_visits_screen.dart';
@@ -19,6 +21,7 @@ import 'notifications_screen.dart';
 import 'overtime_screen.dart';
 import 'reimbursement_screen.dart';
 import 'salary_screen.dart';
+import 'wfh_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,8 +34,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final _attendanceService = AttendanceService();
   final _taskService = TaskService();
   final _notificationService = AppNotificationService();
+  final _wfhService = WfhService();
 
   AttendanceRecord? _today;
+  // Today's APPROVED Work From Home day, if any. Loaded leniently: an older server without the WFH endpoints
+  // (or a hiccup) must never break the rest of the Home screen, so failures simply mean "no WFH today".
+  WfhToday? _wfhToday;
+  // On an approved WFH day the WFH card replaces the office punch card — unless the employee says they're
+  // going to the office after all.
+  bool _useOfficePunch = false;
   int _pendingTasks = 0;
   int _unreadNotifications = 0;
   bool _loading = true;
@@ -55,9 +65,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _attendanceService.getTodayStatus(),
         _taskService.getMyTasks(),
         _notificationService.getUnreadCount(),
+        _wfhService.getToday().then<WfhToday?>((v) => v).catchError((_) => null),
       ]);
       if (!mounted) return;
       setState(() {
+        _wfhToday = results[3] as WfhToday?;
         _today = results[0] as AttendanceRecord?;
         _pendingTasks = (results[1] as List<TaskItem>).where((t) => t.status.toLowerCase() != 'completed' && t.status.toLowerCase() != 'closed').length;
         _unreadNotifications = results[2] as int;
@@ -126,24 +138,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: AppColors.primarySoft,
-                        backgroundImage: resolvePhotoUrl(session.photoUrl) != null ? NetworkImage(resolvePhotoUrl(session.photoUrl)!) : null,
-                        child: resolvePhotoUrl(session.photoUrl) == null
-                            ? Text(
-                                session.userName.isNotEmpty ? session.userName[0].toUpperCase() : '?',
-                                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                              )
-                            : null,
-                      ),
+                      SessionAvatar(name: session.userName, radius: 22),
                       const SizedBox(width: 12),
                       Text(session.userName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (_error != null) ErrorView(message: _error!, onRetry: _load),
-                  _buildPunchCard(),
+                  if (_showWfhCard) ...[
+                    WfhDayCard(today: _wfhToday!, onChanged: _load),
+                    if (_wfhToday!.notStarted)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => setState(() => _useOfficePunch = true),
+                          child: const Text("I'm at the office today — use office punch"),
+                        ),
+                      ),
+                  ] else
+                    _buildPunchCard(),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -167,6 +180,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  // The WFH card is shown whenever there's an approved WFH day today that hasn't been overridden by an office
+  // punch (PunchedInOffice) or the employee choosing the office.
+  bool get _showWfhCard => _wfhToday != null && !_wfhToday!.punchedInOffice && !_useOfficePunch;
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -279,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
       (_QuickAction('Daily Log', Icons.edit_note_outlined, AppColors.warning, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyLogScreen())))),
       (_QuickAction('Salary & Payslip', Icons.account_balance_wallet_outlined, AppColors.success, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SalaryScreen())))),
       (_QuickAction('My Visits', Icons.map_outlined, AppColors.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVisitsScreen())))),
+      (_QuickAction('Work From Home', Icons.home_work_outlined, AppColors.info, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WfhScreen())).then((_) => _load()))),
       (_QuickAction('Overtime', Icons.timer_outlined, AppColors.holiday, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OvertimeScreen())))),
       (_QuickAction('My Documents', Icons.description_outlined, AppColors.info, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DocumentsScreen())))),
       (_QuickAction('Notifications', Icons.notifications_none_rounded, AppColors.onLeave, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())))),
@@ -310,7 +328,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Icon(a.icon, color: a.color, size: 20),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(a.label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+                Expanded(
+                  // A single long word ("Reimbursement") shrinks to fit instead of breaking mid-word on narrow phones.
+                  child: a.label.contains(' ')
+                      ? Text(a.label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(a.label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                        ),
+                ),
               ],
             ),
           ),

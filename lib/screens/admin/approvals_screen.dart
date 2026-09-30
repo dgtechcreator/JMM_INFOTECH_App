@@ -7,6 +7,7 @@ import '../../services/overtime_service.dart';
 import '../../services/reimbursement_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import 'wfh_admin_screen.dart';
 
 class ApprovalsScreen extends StatefulWidget {
   const ApprovalsScreen({super.key, this.initialTabIndex = 0});
@@ -22,7 +23,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 3));
   }
 
   @override
@@ -36,9 +37,17 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SingleTickerProv
     return Scaffold(
       appBar: AppBar(
         title: const Text('Approvals'),
-        bottom: TabBar(controller: _tabController, tabs: const [Tab(text: 'Leave'), Tab(text: 'Reimbursement'), Tab(text: 'Overtime')]),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: const [Tab(text: 'Leave'), Tab(text: 'Reimbursement'), Tab(text: 'Overtime'), Tab(text: 'WFH')],
+        ),
       ),
-      body: TabBarView(controller: _tabController, children: const [_LeaveApprovalsTab(), _ReimbursementApprovalsTab(), _OvertimeApprovalsTab()]),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [_LeaveApprovalsTab(), _ReimbursementApprovalsTab(), _OvertimeApprovalsTab(), WfhPendingList()],
+      ),
     );
   }
 }

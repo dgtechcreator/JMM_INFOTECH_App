@@ -14,6 +14,8 @@ import '../screens/employee/overtime_screen.dart';
 import '../screens/employee/reimbursement_screen.dart';
 import '../screens/employee/salary_screen.dart';
 import '../screens/employee/tasks_screen.dart';
+import '../screens/employee/wfh_screen.dart';
+import '../screens/profile/login_activity_screen.dart';
 
 /// Global key so a push-notification tap can navigate even when it fires outside any widget's
 /// BuildContext (app backgrounded or fully terminated) — see PushNotificationService.
@@ -58,6 +60,14 @@ Future<void> routeForNotifyType(String? notifyType) async {
       break;
     case 'Attendance':
       screen = isAdmin ? const TeamAttendanceScreen() : const AttendanceScreen();
+      break;
+    case 'WFH':
+      // Admin: the WFH tab of Approvals (index 3); employee: their own Work From Home screen.
+      screen = isAdmin ? const ApprovalsScreen(initialTabIndex: 3) : const WfhScreen();
+      break;
+    case 'Security':
+      // Password/username changed, signed out remotely: show where the account is signed in.
+      screen = const LoginActivityScreen();
       break;
     default:
       screen = const NotificationsScreen();

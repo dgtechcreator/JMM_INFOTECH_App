@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../core/api_client.dart';
+import '../core/device_identity.dart';
 
 class LoginResult {
   LoginResult({
@@ -26,10 +28,14 @@ class AuthService {
 
   Future<LoginResult> login(String username, String password, String loginType) async {
     try {
+      // Device details ride along as form fields: the server records which phone this sign-in came from
+      // (Login Activity — "where is my account signed in" for the user, the shared-phone audit for admins).
+      final device = await DeviceIdentity.load();
       final res = await _client.post('/EmployeeApp/Login', data: {
         'username': username,
         'password': password,
         'loginType': loginType,
+        ...device.toFormFields(),
       });
 
       if (res.data is! Map<String, dynamic>) {
@@ -64,5 +70,32 @@ class AuthService {
         throw ApiException(e.message ?? 'Network error occurred.');
       }
     }
+  }
+
+  /// Ties the stored session token to this phone. Called right after login AND on every start with a saved
+  /// session — the latter links (and keeps fresh) sessions that were created before login tracking
+  /// existed, which would otherwise be invisible in "My Login Activity". Best-effort.
+  Future<void> registerSessionDevice(String loginType) async {
+    try {
+      final device = await DeviceIdentity.load();
+      await _client.post('/EmployeeApp/RegisterSessionDevice', data: {'loginType': loginType, ...device.toFormFields()});
+    } catch (_) {}
+  }
+
+  /// Tells the server this phone is signing out: the session token is revoked, the session is marked
+  /// logged-out in Login Activity, and this phone stops receiving the account's push notifications (so the
+  /// next person to sign in here — or nobody — doesn't keep getting them). Best-effort with a short
+  /// timeout: signing out locally must never be blocked by a bad connection.
+  Future<void> logoutFromServer() async {
+    try {
+      final device = await DeviceIdentity.load();
+      String? fcmToken;
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (_) {}
+      await _client
+          .post('/EmployeeApp/Logout', data: {'fcmToken': ?fcmToken, 'deviceId': device.deviceId})
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
   }
 }

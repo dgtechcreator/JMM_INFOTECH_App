@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/auth_service.dart';
 import 'api_client.dart';
 
 enum AuthStatus { unknown, signedOut, signedIn }
@@ -75,6 +76,16 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// After the user edits their name/username: Employee logins show the person's full name, Admin logins
+  /// show the account handle (mirrors what EmployeeAppController.Login puts in `userName`).
+  Future<void> updateDisplayName(String name) async {
+    if (name.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kUserName, name.trim());
+    userName = name.trim();
+    notifyListeners();
+  }
+
   Future<void> updatePhotoUrl(String photoUrl) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kPhotoUrl, photoUrl);
@@ -82,7 +93,13 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signOut() async {
+  /// [notifyServer] = true (the default, for a user-initiated logout) first tells the server to end this
+  /// session and stop push for this phone. The global "your session ended" handler passes false — the token
+  /// is already dead then, so there is nothing to tell the server.
+  Future<void> signOut({bool notifyServer = true}) async {
+    if (notifyServer && ApiClient.instance.hasToken) {
+      await AuthService().logoutFromServer();
+    }
     await ApiClient.instance.setToken(null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kUserId);

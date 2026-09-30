@@ -7,7 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiConfig {
   // Live server — real HTTPS domain, works from anywhere (mobile data or any Wi-Fi), no Android
   // cleartext-traffic exception needed since it's HTTPS.
-  static const String baseUrl = 'https://portal.jmmportal.com';
+  //
+  // A dev build can point elsewhere WITHOUT editing this file:
+  //   flutter run --dart-define=API_BASE_URL=http://<your-dev-machine>:<port>
+  // (the default below is what every normal/release build uses).
+  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://portal.jmmportal.com');
 
   // Local dev machine — LAN IP (not "localhost", which on a real phone means the phone itself).
   // Needs: IIS Express running + a matching host-header binding in applicationhost.config, a Windows
@@ -94,9 +98,16 @@ class ApiClient {
   /// shape into a model full of default/zero values instead of surfacing that the session is invalid.
   void _throwIfUnauthorized(Response res) {
     if (res.statusCode == 401) {
+      // A 401 on a request that CARRIED a token means the session itself ended (signed out from another
+      // device, password changed, admin forced logout, or expiry) — let the app really sign out instead of
+      // leaving every screen showing "Unauthorized". A 401 with no token is just a wrong login attempt.
+      if (_token != null) onUnauthorized?.call();
       throw ApiException(extractMessage(res.data, 'Your session has expired. Please log in again.'), statusCode: 401);
     }
   }
+
+  /// Set once from main.dart; see [_throwIfUnauthorized].
+  static void Function()? onUnauthorized;
 }
 
 /// Raised by service methods when the API returns a non-2xx/handled-error body, carrying a

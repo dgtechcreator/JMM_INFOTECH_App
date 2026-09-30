@@ -72,6 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
         photoUrl: result.photoUrl,
       );
       unawaited(PushNotificationService.registerToken());
+      // The login call already carried the device details; this refreshes them on the now-linked session.
+      unawaited(_authService.registerSessionDevice(result.loginType));
       if (!mounted) return;
       _navigateToShell(result.loginType);
     } on ApiException catch (e) {
