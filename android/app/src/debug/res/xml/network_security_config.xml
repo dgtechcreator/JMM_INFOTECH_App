@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DEBUG builds only (overrides src/main/res/xml/network_security_config.xml): lets a dev build reach the
+     local HTTP-only IIS Express backend. Update the LAN IP below if the dev machine's IP changes
+     (see lib/core/api_client.dart ApiConfig). Release builds use the HTTPS-only main config. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.0.124</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

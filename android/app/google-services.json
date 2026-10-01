@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "1072522203166",
-    "project_id": "jmm-employee-app",
-    "storage_bucket": "jmm-employee-app.firebasestorage.app"
+    "project_number": "778320479236",
+    "project_id": "jmminfotech-4c215",
+    "storage_bucket": "jmminfotech-4c215.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1072522203166:android:1933565b38cdb5282a9e0f",
+        "mobilesdk_app_id": "1:778320479236:android:30ebb12e91b2e9b81e6151",
         "android_client_info": {
-          "package_name": "com.jmminfotech.jmm_employee_app"
+          "package_name": "com.jmm_infotech"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCeHxnX7Ocl-TOHlCPQoCdFwFBUus-BhRk"
+          "current_key": "AIzaSyAhTbPE0xex54szJSa9MMedwQJcPxhpmoE"
         }
       ],
       "services": {

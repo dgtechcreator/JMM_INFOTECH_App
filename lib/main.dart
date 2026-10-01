@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
+import 'core/app_config.dart';
 import 'core/session.dart';
 import 'screens/admin/admin_shell.dart';
 import 'screens/auth/login_screen.dart';
@@ -14,6 +15,7 @@ import 'services/notification_router.dart';
 import 'services/push_notification_service.dart';
 import 'services/trip_tracking_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/app_gate.dart';
 
 bool _handlingEndedSession = false;
 
@@ -44,6 +46,11 @@ Future<void> _onSessionEnded() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ApiClient.onUnauthorized = () => unawaited(_onSessionEnded());
+  // Server address the portal last told us to use (see ApiConfig) + cached remote settings — both load from
+  // local storage only, so this never delays startup on the network. The fresh fetch happens after runApp.
+  await ApiConfig.loadPersisted();
+  final appConfig = AppConfigController();
+  await appConfig.init();
   // Firebase push and the background location service are native (Android/iOS) features. A Flutter WEB build —
   // only ever used to eyeball UI changes quickly in a browser — has neither configured, and awaiting their
   // init there throws before runApp() and leaves a blank page.
@@ -51,21 +58,30 @@ void main() async {
     await PushNotificationService.initialize();
     await TripTrackingService.initialize();
   }
-  runApp(const JmmEmployeeApp());
+  runApp(JmmEmployeeApp(appConfig: appConfig));
+  // In the background: ask the portal for its current settings (new server address, forced update,
+  // maintenance). Failure is silent — the last known settings stay in force.
+  unawaited(appConfig.refresh());
 }
 
 class JmmEmployeeApp extends StatelessWidget {
-  const JmmEmployeeApp({super.key});
+  const JmmEmployeeApp({super.key, required this.appConfig});
+  final AppConfigController appConfig;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => Session(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => Session()),
+        ChangeNotifierProvider.value(value: appConfig),
+      ],
       child: MaterialApp(
         title: 'JMM Employee',
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
         theme: AppTheme.light(),
+        // Portal-controlled "Update required" / "Maintenance" screens cover everything, login included.
+        builder: (context, child) => AppGate(child: child ?? const SizedBox.shrink()),
         home: const _SplashGate(),
       ),
     );

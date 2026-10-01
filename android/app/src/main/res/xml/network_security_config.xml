@@ -1,15 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android blocks plain HTTP (cleartext) traffic by default on API 28+. The dev/LAN backend
-     (MVC.Web/EmployeeApp API) only speaks HTTP, not HTTPS, so cleartext must be explicitly allowed for
-     the hosts it can run at — the dev machine's LAN IP (see lib/core/api_client.dart ApiConfig.baseUrl)
-     plus localhost/10.0.2.2 for the Android emulator. Scoped to these specific hosts rather than a
-     blanket usesCleartextTraffic="true" for every domain. Update the domain list here if the dev
-     machine's LAN IP changes, or replace with a production HTTPS domain (which needs no exception) for
-     a release build. -->
+<!-- Release/production config: HTTPS only. The live backend (https://portal.jmmportal.com) needs no
+     exception. The dev/LAN cleartext exceptions (local IIS Express over HTTP) live in
+     src/debug/res/xml/network_security_config.xml, which Android merges in for debug builds only — so a
+     Play Store build can never talk plain HTTP. -->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">192.168.0.124</domain>
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">10.0.2.2</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

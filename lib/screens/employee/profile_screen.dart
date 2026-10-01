@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_config.dart';
 import '../../core/session.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
@@ -174,6 +175,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _securityTile(Icons.devices_other_outlined, 'My login activity', 'Phones signed in to your account, and when', () => _open(const LoginActivityScreen())),
                 const Divider(height: 1),
                 _securityTile(Icons.notifications_active_outlined, 'Notification settings', 'Check that alerts reach this phone', () => _open(const NotificationSettingsScreen())),
+                const Divider(height: 1),
+                _securityTile(Icons.privacy_tip_outlined, 'Privacy policy', 'How your information is collected and used', () => context.read<AppConfigController>().openPrivacyPolicy()),
               ],
             ),
           ),

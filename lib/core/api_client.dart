@@ -1,9 +1,19 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Points at the ASP.NET MVC app's /EmployeeApp/* API (MVC.Web/Controllers/API/EmployeeAppController.cs).
-/// Exactly one of the two lines below should be uncommented at a time — swap which one is active to
-/// switch environments, then do a full rebuild (`flutter build apk`), not just hot reload.
+///
+/// The address is NOT fixed at build time any more: the portal's "Mobile App Settings" page can hand the app
+/// a new server address (and backups) via /EmployeeApp/GetAppConfig (see app_config.dart), so moving the
+/// server or changing the domain no longer needs a new APK on every phone. What happens:
+///   * [_compiledBaseUrl] is the built-in address — always remembered as a last resort.
+///   * A server-supplied address is stored as an override ([setActive]) only after the app has confirmed that
+///     it answers, and survives restarts (SharedPreferences, so the background trip service sees it too).
+///   * If a request cannot even connect, ApiClient retries it on the [fallbacks] / built-in address and
+///     remembers whichever works.
+/// A dev build started with --dart-define=API_BASE_URL=... is "pinned": it never follows remote settings, so
+/// pointing a test phone at a local machine can't be undone behind your back.
 class ApiConfig {
   // Live server — real HTTPS domain, works from anywhere (mobile data or any Wi-Fi), no Android
   // cleartext-traffic exception needed since it's HTTPS.
@@ -11,14 +21,82 @@ class ApiConfig {
   // A dev build can point elsewhere WITHOUT editing this file:
   //   flutter run --dart-define=API_BASE_URL=http://<your-dev-machine>:<port>
   // (the default below is what every normal/release build uses).
-  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://portal.jmmportal.com');
+  static const String _compiledBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://portal.jmmportal.com');
+  static const bool isPinned = bool.hasEnvironment('API_BASE_URL');
 
-  // Local dev machine — LAN IP (not "localhost", which on a real phone means the phone itself).
-  // Needs: IIS Express running + a matching host-header binding in applicationhost.config, a Windows
-  // firewall rule for the port, a `netsh http add urlacl` reservation for this IP, the phone on the same
-  // Wi-Fi as this machine, and the network_security_config.xml cleartext exception (already set up) —
-  // update the IP below to match this machine's current one (Windows: `ipconfig`, Wi-Fi adapter IPv4).
-  // static const String baseUrl = 'http://192.168.0.124:60080';
+  static const _kOverride = 'api_base_override';
+  static const _kFallbacks = 'api_fallback_urls';
+
+  static String? _override;
+  static List<String> _fallbacks = const [];
+
+  /// The address every request uses right now.
+  static String get baseUrl => _override ?? _compiledBaseUrl;
+  static String get compiledBaseUrl => _compiledBaseUrl;
+  static List<String> get fallbacks => _fallbacks;
+
+  /// Every address worth trying, in order: current, server-supplied backups, built-in. No duplicates.
+  /// Pinned (dev) builds only ever have their own address.
+  static List<String> get candidates {
+    if (isPinned) return [_compiledBaseUrl];
+    final out = <String>[];
+    for (final u in [baseUrl, ..._fallbacks, _compiledBaseUrl]) {
+      if (!out.contains(u)) out.add(u);
+    }
+    return out;
+  }
+
+  /// Only ever accept https addresses from the server (and a built-in one) — never downgrade to plain HTTP.
+  static bool isAcceptable(String? url) {
+    if (url == null) return false;
+    final uri = Uri.tryParse(url.trim());
+    return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
+  }
+
+  static String normalize(String url) => url.trim().replaceFirst(RegExp(r'/+$'), '');
+
+  static Future<void> loadPersisted() async {
+    if (isPinned) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_kOverride);
+      _override = isAcceptable(saved) ? normalize(saved!) : null;
+      _fallbacks = (prefs.getStringList(_kFallbacks) ?? const []).where(isAcceptable).map(normalize).toList();
+    } catch (_) {
+      // Preferences unreadable -> keep the built-in address; never block startup on this.
+    }
+  }
+
+  /// Switch the address used from now on (and across restarts). Passing the built-in address clears the override.
+  static Future<void> setActive(String url) async {
+    if (isPinned || !isAcceptable(url)) return;
+    final clean = normalize(url);
+    _override = clean == _compiledBaseUrl ? null : clean;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_override == null) {
+        await prefs.remove(_kOverride);
+      } else {
+        await prefs.setString(_kOverride, _override!);
+      }
+    } catch (_) {}
+  }
+
+  /// Test seam: forget any override/backups held in memory.
+  @visibleForTesting
+  static void resetForTest() {
+    _override = null;
+    _fallbacks = const [];
+  }
+
+  static Future<void> setFallbacks(List<String> urls) async {
+    if (isPinned) return;
+    _fallbacks = urls.where(isAcceptable).map(normalize).take(5).toList();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kFallbacks, _fallbacks);
+    } catch (_) {}
+  }
 }
 
 const String _tokenPrefsKey = 'auth_token';
@@ -39,9 +117,53 @@ class ApiClient {
         if (_token != null) {
           options.headers['X-Auth-Token'] = _token;
         }
+        // The address can change at runtime (remote settings / failover), so resolve it per request — except
+        // for a failover retry, which deliberately carries its own address.
+        if (options.extra['failover'] != true) {
+          options.baseUrl = ApiConfig.baseUrl;
+        }
         handler.next(options);
       },
+      onError: _failOver,
     ));
+  }
+
+  /// Test seam: swap the HTTP transport for a fake one.
+  @visibleForTesting
+  void useAdapter(HttpClientAdapter adapter) => _dio.httpClientAdapter = adapter;
+
+  static bool _isConnectivityFailure(DioException e) =>
+      e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout;
+
+  /// The request never reached a server (DNS failure, refused, unreachable, connect timeout) — try the other
+  /// known addresses once. Whichever answers becomes the active address until the portal says otherwise. A
+  /// response of ANY kind (even 4xx/5xx) means a server was reached, so that is never retried here.
+  Future<void> _failOver(DioException err, ErrorInterceptorHandler handler) async {
+    final ro = err.requestOptions;
+    if (ApiConfig.isPinned || ro.extra['failover'] == true || !_isConnectivityFailure(err)) {
+      return handler.next(err);
+    }
+    for (final alt in ApiConfig.candidates) {
+      if (alt == ro.baseUrl) continue;
+      try {
+        final data = ro.data;
+        final retry = ro.copyWith(
+          baseUrl: alt,
+          connectTimeout: const Duration(seconds: 6),
+          data: data is FormData ? data.clone() : data,
+          extra: {...ro.extra, 'failover': true},
+        );
+        final res = await _dio.fetch(retry);
+        await ApiConfig.setActive(alt);
+        return handler.resolve(res);
+      } on DioException catch (e) {
+        if (_isConnectivityFailure(e)) continue; // this one is down too — next address
+        return handler.next(e); // reached a server that answered with an error: surface that answer
+      } catch (_) {
+        return handler.next(err); // e.g. the body could not be re-sent
+      }
+    }
+    handler.next(err);
   }
 
   static final ApiClient instance = ApiClient._internal();
@@ -49,6 +171,9 @@ class ApiClient {
   String? _token;
 
   Future<void> loadPersistedToken() async {
+    // Also loads the persisted server address: the background trip-tracking isolate has its own copy of this
+    // singleton and only calls this method, so this keeps it on the same address as the main app.
+    await ApiConfig.loadPersisted();
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenPrefsKey);
   }

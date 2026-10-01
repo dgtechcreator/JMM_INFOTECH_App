@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../core/location_disclosure.dart';
 import '../../core/location_helper.dart';
 import '../../models/models.dart';
 import '../../services/trip_tracking_service.dart';
@@ -65,7 +66,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
       // just in _startTrip(): a reinstall/update resets Android's granted location permission back to
       // denied, and without this the background service would keep silently failing to start with no way
       // for the employee to notice — this is exactly what a reopen after a "Disconnected" flag should fix.
-      _ensureTrackingPermissions().then((_) => TripTrackingService.startTracking(_tripId!));
+      // Tracking resumes only if the user has accepted the location disclosure (Play consent requirement).
+      _ensureTrackingPermissions().then((_) async {
+        if (await LocationDisclosure.isAccepted()) TripTrackingService.startTracking(_tripId!);
+      });
       _startUiWatchers();
     }
   }
@@ -121,6 +125,11 @@ class _TripMapScreenState extends State<TripMapScreen> {
   /// Android 10+ (API 29+), which is exactly why live tracking, the batch sync, and the network/location
   /// off alerts never fired: nothing was requesting it, only the punch-in/out foreground check ran.
   Future<bool> _ensureTrackingPermissions() async {
+    // Play policy: show the in-app disclosure BEFORE any background-location permission prompt.
+    if (!await LocationDisclosure.ensureAccepted(context)) {
+      if (mounted) showSnack(context, 'Location consent is required to track a trip.', isError: true);
+      return false;
+    }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
