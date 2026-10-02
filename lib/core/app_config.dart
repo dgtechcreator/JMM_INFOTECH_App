@@ -26,6 +26,7 @@ class AppConfig {
     this.supportEmail = '',
     this.supportPhone = '',
     this.privacyPolicyUrl = '',
+    this.placesApiKey = '',
   });
 
   final String apiBaseUrl;
@@ -41,6 +42,9 @@ class AppConfig {
   final String supportEmail;
   final String supportPhone;
   final String privacyPolicyUrl;
+
+  /// Search / address (Places + Geocoding REST) key set on the portal; '' = use the built-in key.
+  final String placesApiKey;
 
   static int _int(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
   static String _str(dynamic v) => v == null ? '' : '$v';
@@ -59,6 +63,7 @@ class AppConfig {
         supportEmail: _str(j['supportEmail']),
         supportPhone: _str(j['supportPhone']),
         privacyPolicyUrl: _str(j['privacyPolicyUrl']),
+        placesApiKey: _str(j['placesApiKey']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -75,7 +80,14 @@ class AppConfig {
         'supportEmail': supportEmail,
         'supportPhone': supportPhone,
         'privacyPolicyUrl': privacyPolicyUrl,
+        'placesApiKey': placesApiKey,
       };
+}
+
+/// Keys the portal can hand to the app at runtime (see AppConfig.placesApiKey). Static so plain service classes
+/// (no BuildContext) can read them. Not the native map-tile key: that one is read from the manifest at startup.
+class RemoteKeys {
+  static String? placesKey;
 }
 
 /// Fetches, caches and applies the portal's remote settings:
@@ -124,6 +136,7 @@ class AppConfigController extends ChangeNotifier {
       final raw = prefs.getString(_kCache);
       if (raw != null) {
         config = AppConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+        RemoteKeys.placesKey = config!.placesApiKey.isEmpty ? null : config!.placesApiKey;
       }
     } catch (_) {}
   }
@@ -191,6 +204,7 @@ class AppConfigController extends ChangeNotifier {
 
     // 3. Version gate + maintenance + cache.
     config = cfg;
+    RemoteKeys.placesKey = cfg.placesApiKey.isEmpty ? null : cfg.placesApiKey;
     maintenance = cfg.maintenanceEnabled;
     try {
       final prefs = await SharedPreferences.getInstance();

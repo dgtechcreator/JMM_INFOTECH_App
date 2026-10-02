@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -49,10 +51,32 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _punchBusy = false;
   String? _error;
 
+  // Ticks while the employee is punched in, so the Working Hours card counts up live instead of staying at the
+  // last value the server returned (0h 00m right after punching in).
+  Timer? _ticker;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _ticker = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted && _isLive) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  /// Punched in today and not punched out yet.
+  bool get _isLive => _today?.punchInTime != null && _today?.punchOutTime == null;
+
+  int _workedMinutesNow() {
+    final today = _today;
+    if (today == null) return 0;
+    return liveWorkedMinutes(punchIn: today.punchInTime, punchOut: today.punchOutTime, serverMinutes: today.workedMinutes);
   }
 
   Future<void> _load() async {
@@ -217,13 +241,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(_formatWorkedHours(_today?.workedMinutes ?? 0), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800)),
+              Text(_formatWorkedHours(_workedMinutesNow()), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
               Text(
                 complete
                     ? "Today's attendance complete"
                     : hasPunchedIn
-                        ? 'Currently punched in'
+                        ? 'Currently punched in · since ${formatTime(_today!.punchInTime)}'
                         : 'You have not punched in yet today.',
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),

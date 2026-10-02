@@ -26,6 +26,18 @@ String formatTime(String? raw) {
   return DateFormat('h:mm a').format(dt.toLocal());
 }
 
+/// Minutes worked "so far" for the Home screen's live Working Hours card. While the employee is punched in and
+/// not yet punched out it is [now] minus the punch-in time, so the card counts up by itself; once punched out
+/// (or when the punch-in time can't be read) it is the server's figure. Never negative: a phone clock a little
+/// behind the server must not show a minus. [now] is injectable for tests.
+int liveWorkedMinutes({required String? punchIn, required String? punchOut, required int serverMinutes, DateTime? now}) {
+  if (punchIn == null || punchIn.isEmpty || (punchOut != null && punchOut.isNotEmpty)) return serverMinutes;
+  final start = DateTime.tryParse(punchIn);
+  if (start == null) return serverMinutes;
+  final elapsed = (now ?? DateTime.now()).difference(start.toLocal()).inMinutes;
+  return elapsed < 0 ? 0 : elapsed;
+}
+
 /// "Today" / "Yesterday" / "30 Sep 2026" — for date-wise section dividers (e.g. the notifications list).
 /// [d] must already be in local time (call `.toLocal()` before passing it in).
 String dateGroupLabel(DateTime d) {

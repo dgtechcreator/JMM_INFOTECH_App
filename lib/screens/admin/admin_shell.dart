@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/permission_guard.dart';
 import 'admin_dashboard_screen.dart';
 import 'team_attendance_screen.dart';
 import 'approvals_screen.dart';
@@ -109,10 +110,14 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _screens),
-      floatingActionButton: AppFab(onTap: _openQuickActions),
-      bottomNavigationBar: AppBottomNav(items: _items, currentIndex: _index, onTap: (i) => setState(() => _index = i)),
+    // Admins don't record trips, so only notifications are enforced here (needsLocation: false).
+    return PermissionGuard(
+      needsLocation: false,
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: _screens),
+        floatingActionButton: AppFab(onTap: _openQuickActions),
+        bottomNavigationBar: AppBottomNav(items: _items, currentIndex: _index, onTap: (i) => setState(() => _index = i)),
+      ),
     );
   }
 }

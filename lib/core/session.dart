@@ -44,6 +44,13 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds `v=<now>` to a photo URL that has no version yet (see [applyLogin]). Null/empty stay as they are.
+  static String? withPhotoVersion(String? url) {
+    if (url == null || url.isEmpty) return url;
+    if (RegExp(r'[?&]v=').hasMatch(url)) return url;
+    return '$url${url.contains('?') ? '&' : '?'}v=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   Future<void> applyLogin({
     required String token,
     required int userId,
@@ -60,6 +67,11 @@ class Session extends ChangeNotifier {
     await prefs.setString(_kLoginType, loginType);
     await prefs.setInt(_kEmployeeId, employeeId);
     await prefs.setBool(_kHasAdminAccess, hasAdminAccess);
+    // The server keeps ONE file per user at the same URL, and Flutter's in-memory ImageCache is keyed by URL.
+    // Without a version in the URL, signing out and back in (same app process) showed the OLD cached photo on
+    // Home while Profile (which got a "?v=" URL after an upload) showed the new one. A fresh version per
+    // sign-in forces one fresh fetch.
+    photoUrl = withPhotoVersion(photoUrl);
     if (photoUrl == null) {
       await prefs.remove(_kPhotoUrl);
     } else {
