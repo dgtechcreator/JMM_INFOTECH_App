@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/api_client.dart';
 import '../../services/password_recovery_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common.dart';
 
 enum _Step { find, otp, help, done }
 
@@ -39,6 +40,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _obscure = true;
   String? _error;
   String _masked = '';
+  String _sentAt = '';
   String _doneTitle = '';
   String _doneText = '';
   String _identifierSent = '';
@@ -87,16 +89,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         case 'otp_sent':
           _identifierSent = id;
           _masked = r.maskedEmail ?? '';
+          _sentAt = TimeOfDay.now().format(context);
           _otp.clear();
-          setState(() => _step = _Step.otp);
+          setState(() {
+            _step = _Step.otp;
+            _error = null;
+          });
           _startCountdown();
+          // the mail was handed to the mail server - say so (delivery itself can take a moment / land in Spam)
+          showSnack(context, 'Email sent to $_masked. Check your inbox (and Spam).');
           break;
         case 'no_email':
           _identifierSent = id;
           setState(() => _step = _Step.help);
           break;
         default:
-          setState(() => _error = r.message ?? 'Something went wrong. Please try again.');
+          // the code mail could NOT be sent (or the request was refused) - say so clearly
+          final msg = r.message ?? 'Something went wrong. Please try again.';
+          setState(() => _error = msg);
+          showSnack(context, 'Email NOT sent. $msg', isError: true);
           if (resend) _startCountdown();
       }
     } on ApiException catch (e) {
@@ -206,7 +217,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Widget _errorText() => _error == null
       ? const SizedBox.shrink()
-      : Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)));
+      : Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.08), border: Border.all(color: AppColors.danger.withValues(alpha: 0.30)), borderRadius: BorderRadius.circular(12)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13))),
+            ],
+          ),
+        );
 
   Widget _primaryButton(String label, VoidCallback onTap) => Padding(
         padding: const EdgeInsets.only(top: 18),
@@ -248,7 +271,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const TextSpan(text: 'We sent a 6-digit code to '),
           TextSpan(text: _masked, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         ])),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.10), border: Border.all(color: AppColors.success.withValues(alpha: 0.35)), borderRadius: BorderRadius.circular(12)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.mark_email_read_outlined, color: AppColors.success, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(TextSpan(style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary), children: [
+                  const TextSpan(text: 'Email sent', style: TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: ' at $_sentAt. It usually arrives within a minute. If you cannot see it, check your '),
+                  const TextSpan(text: 'Spam / Junk', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const TextSpan(text: ' folder, then use Resend code.'),
+                ])),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
         TextField(
           controller: _otp,
           autofocus: true,

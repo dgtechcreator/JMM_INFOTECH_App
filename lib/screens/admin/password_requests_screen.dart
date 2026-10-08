@@ -208,12 +208,17 @@ class _PasswordRequestsScreenState extends State<PasswordRequestsScreen> {
                   child: FilledButton.icon(
                     onPressed: () => _openResolve(r),
                     icon: const Icon(Icons.mark_email_read_outlined, size: 18),
-                    label: const Text('Set email & send link'),
+                    label: const Text('Send reset link'),
                     style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
                   ),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton(onPressed: () => _reject(r), child: const Text('Reject', style: TextStyle(color: AppColors.danger))),
+                OutlinedButton(
+                  onPressed: () => _reject(r),
+                  // the app theme gives outlined buttons an infinite minimum width, which a Row cannot lay out
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(88, 44)),
+                  child: const Text('Reject', style: TextStyle(color: AppColors.danger)),
+                ),
               ],
             )
           else if (r.canResend)
