@@ -7,7 +7,6 @@ import 'team_attendance_screen.dart';
 import 'approvals_screen.dart';
 import 'task_assignment_screen.dart';
 import 'employee_login_activity_screen.dart';
-import 'employees_screen.dart';
 import 'live_tracking_screen.dart';
 import 'payroll_screen.dart';
 import 'visit_assignment_screen.dart';
@@ -28,7 +27,7 @@ class _AdminShellState extends State<AdminShell> {
     TeamAttendanceScreen(),
     ApprovalsScreen(),
     TaskAssignmentScreen(),
-    EmployeesScreen(),
+    PayrollScreen(),
   ];
 
   static const _items = [

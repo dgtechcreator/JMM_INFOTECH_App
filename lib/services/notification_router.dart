@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/admin/approvals_screen.dart';
+import '../screens/admin/password_requests_screen.dart';
 import '../screens/admin/payroll_screen.dart';
 import '../screens/admin/task_assignment_screen.dart';
 import '../screens/admin/team_attendance_screen.dart';
 import '../screens/admin/visit_assignment_screen.dart';
 import '../screens/employee/attendance_screen.dart';
+import '../screens/employee/company_updates_screen.dart';
 import '../screens/employee/leave_screen.dart';
 import '../screens/employee/my_visits_screen.dart';
 import '../screens/employee/notifications_screen.dart';
@@ -64,6 +66,14 @@ Future<void> routeForNotifyType(String? notifyType) async {
     case 'WFH':
       // Admin: the WFH tab of Approvals (index 3); employee: their own Work From Home screen.
       screen = isAdmin ? const ApprovalsScreen(initialTabIndex: 3) : const WfhScreen();
+      break;
+    case 'CompanyUpdate':
+      // A new notice / holiday / event was posted - same screen for admins and employees.
+      screen = const CompanyUpdatesScreen();
+      break;
+    case 'PasswordHelp':
+      // A 'no email on file' password request - the admin checks it and sets the email.
+      screen = isAdmin ? const PasswordRequestsScreen() : const NotificationsScreen();
       break;
     case 'Security':
       // Password/username changed, signed out remotely: show where the account is signed in.

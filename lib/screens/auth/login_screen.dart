@@ -11,6 +11,7 @@ import '../../services/push_notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../admin/admin_shell.dart';
 import '../employee/employee_shell.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -186,11 +187,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _loading
+                                  ? null
+                                  : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ForgotPasswordScreen(initialIdentifier: _usernameController.text.trim()))),
+                              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                              child: const Text('Forgot password?', style: TextStyle(fontWeight: FontWeight.w600)),
+                            ),
+                          ),
                           if (_error != null) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 4),
                             Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
                           ],
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: _loading ? null : _submit,
                             child: _loading
