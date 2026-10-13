@@ -135,7 +135,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // Employee logins show the person's full name; Admin logins show the account handle.
       await session.updateDisplayName(session.loginType == 'Employee' ? '${_first.text.trim()} ${_last.text.trim()}' : result.userName);
       if (!mounted) return;
-      showSnack(context, result.usernameChanged ? 'Saved. Your username is now "${result.userName}" — use it next time you sign in.' : 'Your details were saved.');
+      showSnack(context, result.usernameChanged ? 'Saved. Your username is now "${result.userName}". You still sign in with your mobile number or email.' : 'Your details were saved.');
       Navigator.pop(context, true);
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, isError: true);
@@ -150,6 +150,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Employees can't change their own name, email or mobile (HR records; email/mobile are also their sign-in) -
+    // the server ignores them too. Admin logins can.
+    final locked = context.read<Session>().loginType == 'Employee';
     return Scaffold(
       appBar: AppBar(title: const Text('Edit profile')),
       body: Form(
@@ -157,23 +160,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (locked)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text('Your name, email and mobile number are managed by HR/admin. Contact them if any of these need to change.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              ),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     controller: _first,
+                    readOnly: locked,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'First name'),
-                    validator: (v) => _required(v, 'your first name'),
+                    validator: (v) => locked ? null : _required(v, 'your first name'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _last,
+                    readOnly: locked,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Last name'),
-                    validator: (v) => _required(v, 'your last name'),
+                    validator: (v) => locked ? null : _required(v, 'your last name'),
                   ),
                 ),
               ],
@@ -185,12 +196,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               enableSuggestions: false,
               onChanged: _onUsernameChanged,
               decoration: InputDecoration(
-                labelText: 'Username (you sign in with this)',
+                labelText: 'Username (display name only)',
                 prefixIcon: const Icon(Icons.alternate_email),
                 suffixIcon: _checkingUsername
                     ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
                     : (_usernameHint == null ? null : Icon(_usernameOk ? Icons.check_circle : Icons.error, color: _usernameOk ? AppColors.success : AppColors.danger)),
-                helperText: _usernameHint ?? 'If you change it, use the new one the next time you sign in.',
+                helperText: _usernameHint ?? 'You sign in with your mobile number or email, not with this username.',
                 helperMaxLines: 2,
                 helperStyle: TextStyle(color: _usernameHint == null ? AppColors.textSecondary : (_usernameOk ? AppColors.success : AppColors.danger)),
               ),
@@ -199,10 +210,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _email,
+              readOnly: locked,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
               validator: (v) {
+                if (locked) return null;
                 final s = (v ?? '').trim();
                 if (s.isEmpty) return 'Please enter your email';
                 if (s.length > 50) return 'Email is too long (maximum 50 characters)';
@@ -213,9 +226,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _mobile,
+              readOnly: locked,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(labelText: 'Mobile number', prefixIcon: Icon(Icons.phone_outlined)),
               validator: (v) {
+                if (locked) return null;
                 var digits = (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
                 if (digits.length == 12 && digits.startsWith('91')) digits = digits.substring(2);
                 if (digits.length == 11 && digits.startsWith('0')) digits = digits.substring(1);
