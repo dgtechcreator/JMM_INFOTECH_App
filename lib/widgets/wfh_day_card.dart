@@ -29,6 +29,7 @@ class WfhDayCard extends StatefulWidget {
 class _WfhDayCardState extends State<WfhDayCard> {
   final _service = WfhService();
   bool _busy = false;
+  int _swipeReset = 0; // bumped when ending the day is cancelled, so the slider snaps back
   Timer? _ticker;
 
   @override
@@ -47,6 +48,24 @@ class _WfhDayCardState extends State<WfhDayCard> {
   }
 
   Future<void> _punch(bool isIn) async {
+    if (_busy) return;
+    if (!isIn) {
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('End your WFH day?'),
+          content: const Text('Please confirm you are done for the day.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Not yet')),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Yes, end day')),
+          ],
+        ),
+      );
+      if (sure != true || !mounted) {
+        if (mounted) setState(() => _swipeReset++);
+        return;
+      }
+    }
     setState(() => _busy = true);
     try {
       final (lat, lng) = await LocationHelper.tryGetLatLng();
@@ -62,7 +81,7 @@ class _WfhDayCardState extends State<WfhDayCard> {
     }
   }
 
-  String _hm(int minutes) => '${minutes ~/ 60}h ${(minutes % 60).toString().padLeft(2, '0')}m';
+  String _hm(int minutes) => formatWorkedMinutes(minutes);
 
   String _workedSoFar() {
     final start = DateTime.tryParse(widget.today.punchInTime ?? '')?.toLocal();
@@ -106,7 +125,7 @@ class _WfhDayCardState extends State<WfhDayCard> {
           if (t.notStarted || t.working) ...[
             const SizedBox(height: 16),
             SwipeToConfirmButton(
-              key: ValueKey(t.workState),
+              key: ValueKey('${t.workState}-$_swipeReset'),
               label: t.notStarted ? 'Slide to start WFH day' : 'Slide to end WFH day',
               color: Colors.white.withValues(alpha: 0.25),
               busy: _busy,

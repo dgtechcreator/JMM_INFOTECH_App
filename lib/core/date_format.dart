@@ -38,6 +38,17 @@ int liveWorkedMinutes({required String? punchIn, required String? punchOut, requ
   return elapsed < 0 ? 0 : elapsed;
 }
 
+/// Worked time is stored in minutes but always shown as hours + minutes: "7h 05m", "45m", "0m".
+String formatWorkedMinutes(int minutes) {
+  final m = minutes < 0 ? 0 : minutes;
+  final h = m ~/ 60;
+  final r = m % 60;
+  return h > 0 ? '${h}h ${r.toString().padLeft(2, '0')}m' : '${r}m';
+}
+
+/// Same, from decimal hours (the WFH office/WFH totals arrive as hours).
+String formatWorkedHours(double hours) => formatWorkedMinutes((hours * 60).round());
+
 /// "Today" / "Yesterday" / "30 Sep 2026" — for date-wise section dividers (e.g. the notifications list).
 /// [d] must already be in local time (call `.toLocal()` before passing it in).
 String dateGroupLabel(DateTime d) {

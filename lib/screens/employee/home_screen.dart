@@ -18,6 +18,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/company_updates_card.dart';
 import '../../widgets/home_widgets.dart';
+import '../../widgets/missed_punchout_card.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/swipe_button.dart';
 import '../../widgets/wfh_day_card.dart';
@@ -59,6 +60,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _unreadNotifications = 0;
   bool _loading = true;
   bool _punchBusy = false;
+  int _swipeReset = 0; // bumped when a punch-out is cancelled, so the slider snaps back to the start
+  int _missedToken = 0; // bumped on every reload so the "forgot to punch out" card re-checks too
   String? _error;
 
   // Everything below is loaded leniently too: a server that does not have the newer endpoints yet (old build,
@@ -131,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _tasks = results[1] as List<TaskItem>;
         _unreadNotifications = results[2] as int;
         _wfhToday = results[3] as WfhToday?;
+        _missedToken++;
         _loading = false;
       });
     } catch (e) {
@@ -176,6 +180,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _punch(bool isPunchIn) async {
+    if (_punchBusy) return;
+    if (!isPunchIn) {
+      // Punch out is final - ask first. (The server also refuses a punch out within a few minutes of punching in.)
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Punch out?'),
+          content: const Text('Please confirm you are done for the day. You cannot undo this yourself.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Not yet')),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Yes, punch out')),
+          ],
+        ),
+      );
+      if (sure != true || !mounted) {
+        // Cancelled: put the slider back at the start.
+        if (mounted) setState(() => _swipeReset++);
+        return;
+      }
+    }
     setState(() => _punchBusy = true);
     try {
       final (lat, lng) = await LocationHelper.tryGetLatLng();
@@ -222,6 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _header(session),
                     const SizedBox(height: 16),
                     if (_error != null) ErrorView(message: _error!, onRetry: _load),
+                    MissedPunchOutCard(refreshToken: _missedToken, onChanged: _load),
                     if (_showWfhCard) ...[
                       WfhDayCard(today: _wfhToday!, onChanged: _load),
                       if (_wfhToday!.notStarted)
@@ -312,6 +337,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final minutes = _workedMinutesNow();
     final progress = std <= 0 ? 0.0 : (minutes / (std * 60)).clamp(0.0, 1.0);
     final stdText = std == std.roundToDouble() ? std.toInt().toString() : std.toStringAsFixed(1);
+    final lockLeft = _today?.punchOutLockRemaining ?? Duration.zero;
+    final punchOutLocked = hasPunchedIn && !hasPunchedOut && lockLeft > Duration.zero;
 
     String statusText;
     if (!hasPunchedIn) {
@@ -391,10 +418,15 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           else ...[
             SwipeToConfirmButton(
-              key: ValueKey(hasPunchedIn),
-              label: hasPunchedIn ? 'Slide to punch out' : 'Slide to punch in',
+              key: ValueKey('$hasPunchedIn-$punchOutLocked-$_swipeReset'),
+              label: punchOutLocked
+                  ? 'Punch out unlocks in ${lockLeft.inMinutes + 1} min'
+                  : (hasPunchedIn ? 'Slide to punch out' : 'Slide to punch in'),
               color: Colors.white.withValues(alpha: 0.25),
               busy: _punchBusy,
+              // Punch out stays locked for a few minutes after punching in: a slow-network double slide used to
+              // punch in AND out together.
+              enabled: !punchOutLocked,
               onConfirm: () => _punch(!hasPunchedIn),
             ),
             const SizedBox(height: 10),

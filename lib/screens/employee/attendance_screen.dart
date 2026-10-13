@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/missed_punchout_card.dart';
 import '../../widgets/wfh_day_card.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -91,6 +92,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      // Where the "You haven't punched out" notification lands for an employee.
+                      MissedPunchOutCard(onChanged: _load),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -161,7 +164,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Row(children: [Text(r.attendanceDate), const SizedBox(width: 8), if (r.isWfh) const WorkModeChip(mode: 'WFH')]),
-        subtitle: Text('${formatTime(r.punchInTime)}  →  ${formatTime(r.punchOutTime)}  ·  ${r.workedMinutes} min'),
+        subtitle: Text('${formatTime(r.punchInTime)}  →  ${formatTime(r.punchOutTime)}  ·  ${r.punchInTime != null && r.punchOutTime == null ? 'Working' : formatWorkedMinutes(r.workedMinutes)}'),
         trailing: StatusBadge(status: r.statusId),
       ),
     );

@@ -63,6 +63,11 @@ Future<void> routeForNotifyType(String? notifyType) async {
     case 'Attendance':
       screen = isAdmin ? const TeamAttendanceScreen() : const AttendanceScreen();
       break;
+    case 'MissedPunchOut':
+      // Employee: the "are you still at the office / when did you leave" card on My Attendance.
+      // Admin: Team Attendance, which lists everyone with a missing punch out.
+      screen = isAdmin ? const TeamAttendanceScreen() : const AttendanceScreen();
+      break;
     case 'WFH':
       // Admin: the WFH tab of Approvals (index 3); employee: their own Work From Home screen.
       screen = isAdmin ? const ApprovalsScreen(initialTabIndex: 3) : const WfhScreen();

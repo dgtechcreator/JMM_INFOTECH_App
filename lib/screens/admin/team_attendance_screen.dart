@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/date_format.dart';
 import '../../services/attendance_service.dart';
 import '../../services/task_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 
 class TeamAttendanceScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
   final _attendanceService = AttendanceService();
   final _taskService = TaskService();
   List<Map<String, dynamic>> _rows = [];
+  // Everyone who punched in and never punched out (the employee was asked; the admin can set the out time).
+  List<MissedPunchOut> _missed = [];
   bool _loading = true;
   String? _error;
   final _searchController = TextEditingController();
@@ -43,7 +46,12 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
     });
     try {
       final rows = await _attendanceService.getTeamAttendanceList(search: _searchController.text.trim());
-      if (mounted) setState(() { _rows = rows; _loading = false; });
+      // Lenient: an older server without this endpoint just shows no "missing punch out" section.
+      List<MissedPunchOut> missed = [];
+      try {
+        missed = await _attendanceService.getMissedPunchOuts();
+      } catch (_) {}
+      if (mounted) setState(() { _rows = rows; _missed = missed; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
     }
@@ -179,6 +187,73 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
     );
   }
 
+  Future<void> _markMissedOut(MissedPunchOut m) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: m.suggestedOut,
+      helpText: 'When did ${m.employeeName} leave on ${m.dateText}?',
+    );
+    if (picked == null || !mounted) return;
+    try {
+      final result = await _attendanceService.adminMarkMissedPunchOut(m.attendanceId, m.outTimeIso(picked.hour, picked.minute));
+      if (!mounted) return;
+      if (result == 'success') {
+        showSnack(context, 'Punch out saved. ${m.employeeName} was notified.');
+        _load();
+      } else {
+        showSnack(context, result, isError: true);
+      }
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), isError: true);
+    }
+  }
+
+  Widget _missedSection() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+              const SizedBox(width: 8),
+              Text('Punch out missing (${_missed.length})', style: const TextStyle(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final m in _missed)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(m.employeeName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          '${m.dateText} · in ${m.punchInText}${m.saidStillWorking ? ' · says still at office' : (m.wasNotified ? ' · asked' : '')}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(onPressed: () => _markMissedOut(m), child: const Text('Mark out')),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,6 +278,7 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
               onSubmitted: (_) => _load(),
             ),
           ),
+          if (_missed.isNotEmpty) _missedSection(),
           Expanded(
             child: _loading
                 ? const LoadingView()
@@ -221,7 +297,8 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                                   margin: const EdgeInsets.only(bottom: 8),
                                   child: ListTile(
                                     title: Text('${r['EmployeeName'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    subtitle: Text('${formatDate(r['AttendanceDate']?.toString())} · ${formatTime(r['PunchInTime']?.toString())} → ${formatTime(r['PunchOutTime']?.toString())}'),
+                                    subtitle: Text('${formatDate(r['AttendanceDate']?.toString())} · ${formatTime(r['PunchInTime']?.toString())} → ${formatTime(r['PunchOutTime']?.toString())}'
+                                        '${r['PunchInTime'] != null ? (r['PunchOutTime'] == null ? ' · Working' : ' · ${formatWorkedMinutes(int.tryParse('${r['WorkedMinutes'] ?? 0}') ?? 0)}') : ''}'),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [

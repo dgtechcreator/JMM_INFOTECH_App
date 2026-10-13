@@ -372,8 +372,8 @@ class _WfhMonthlyTabState extends State<_WfhMonthlyTab> {
             const SizedBox(height: 8),
             Row(
               children: [
-                _metric('Office', '${r.officeDays} d', '${r.officeHours.toStringAsFixed(1)} h', AppColors.primaryDark),
-                _metric('WFH', '${r.wfhDays} d', '${r.wfhHours.toStringAsFixed(1)} h', AppColors.info),
+                _metric('Office', '${r.officeDays} d', formatWorkedHours(r.officeHours), AppColors.primaryDark),
+                _metric('WFH', '${r.wfhDays} d', formatWorkedHours(r.wfhHours), AppColors.info),
                 _metric('Leave', '${r.leaveDays} d', '', AppColors.onLeave),
                 _metric('Planned WFH', '${r.approvedWfhDays} d', r.pendingRequests > 0 ? '${r.pendingRequests} pending' : '', AppColors.warning),
               ],

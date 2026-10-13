@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/date_format.dart';
 import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../services/daily_log_service.dart';
@@ -181,9 +182,9 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
-          Expanded(child: StatCard(label: 'This Week — Worked', value: '${s.hours.toStringAsFixed(1)} hrs', color: AppColors.primaryDark, icon: Icons.schedule_outlined)),
+          Expanded(child: StatCard(label: 'This Week — Worked', value: formatWorkedHours(s.hours), color: AppColors.primaryDark, icon: Icons.schedule_outlined)),
           const SizedBox(width: 10),
-          Expanded(child: StatCard(label: 'This Week — OT', value: '${s.otHours.toStringAsFixed(1)} hrs', color: AppColors.warning, icon: Icons.bolt_outlined)),
+          Expanded(child: StatCard(label: 'This Week — OT', value: formatWorkedHours(s.otHours), color: AppColors.warning, icon: Icons.bolt_outlined)),
         ],
       ),
     );
@@ -202,7 +203,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               title: Row(children: [Text(a.attendanceDate, style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(width: 8), if (a.isWfh) const WorkModeChip(mode: 'WFH')]),
-              subtitle: Text('${a.punchInTime ?? '--:--'} → ${a.punchOutTime ?? '--:--'} · ${(a.workedMinutes / 60.0).toStringAsFixed(1)} hrs${a.remarks != null && a.remarks!.isNotEmpty ? '\n${a.remarks}' : ''}'),
+              subtitle: Text('${a.punchInTime ?? '--:--'} → ${a.punchOutTime ?? '--:--'} · ${a.punchInTime != null && a.punchOutTime == null ? 'Working' : formatWorkedMinutes(a.workedMinutes)}${a.remarks != null && a.remarks!.isNotEmpty ? '\n${a.remarks}' : ''}'),
               isThreeLine: a.remarks != null && a.remarks!.isNotEmpty,
               trailing: StatusBadge(status: a.statusId),
             ),

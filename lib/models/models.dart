@@ -36,7 +36,8 @@ class AttendanceRecord {
     required this.remarks,
     required this.isRegularized,
     this.workMode = 'Office',
-  });
+    this.punchOutLockSeconds = 0,
+  }) : _fetchedAt = DateTime.now();
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> j) => AttendanceRecord(
         attendanceId: _asInt(j['AttendanceID']),
@@ -48,6 +49,7 @@ class AttendanceRecord {
         remarks: j['Remarks'] as String?,
         isRegularized: _asBool(j['IsRegularized']),
         workMode: _asString(j['WorkMode'], 'Office'),
+        punchOutLockSeconds: _asInt(j['PunchOutLockSeconds']),
       );
 
   final int attendanceId;
@@ -62,6 +64,18 @@ class AttendanceRecord {
   /// 'Office' or 'WFH' — how that day's attendance was marked (Work From Home module).
   final String workMode;
   bool get isWfh => workMode == 'WFH';
+
+  /// Seconds Punch Out stays locked after punching in, as the SERVER computed when this was fetched (so a wrong
+  /// phone clock can't matter). Stops a slow-network double slide from punching in AND out; see USP_PunchOut.
+  final int punchOutLockSeconds;
+  final DateTime _fetchedAt;
+
+  /// How much of the lock is left right now (zero once it has run out).
+  Duration get punchOutLockRemaining {
+    if (punchOutLockSeconds <= 0 || punchOutTime != null) return Duration.zero;
+    final left = Duration(seconds: punchOutLockSeconds) - DateTime.now().difference(_fetchedAt);
+    return left.isNegative ? Duration.zero : left;
+  }
 }
 
 class LeaveTypeOption {
