@@ -214,14 +214,24 @@ class AppConfigController extends ChangeNotifier {
 
   /// "Update now": the portal's update link (Google Play), else the market:// deep link for this app.
   Future<void> openUpdatePage() async {
+    String? installedPackage;
+    try {
+      installedPackage = (await PackageInfo.fromPlatform()).packageName;
+    } catch (_) {}
     final link = config?.updateUrl ?? '';
     final uri = Uri.tryParse(link);
-    if (uri != null && uri.hasScheme) {
+    // A Play link that points at a DIFFERENT package than the one installed (e.g. a stale setting left over
+    // from before the app took over the old listing) would open the wrong / a missing store page. Skip it and
+    // use this app's own package instead.
+    final linkedId = uri?.queryParameters['id'];
+    final staleLink = installedPackage != null && linkedId != null && linkedId != installedPackage && (uri?.host.contains('play.google.com') ?? false);
+    if (uri != null && uri.hasScheme && !staleLink) {
       if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
     }
+    if (installedPackage == null) return;
     try {
-      final info = await PackageInfo.fromPlatform();
-      await launchUrl(Uri.parse('market://details?id=${info.packageName}'), mode: LaunchMode.externalApplication);
+      if (await launchUrl(Uri.parse('market://details?id=$installedPackage'), mode: LaunchMode.externalApplication)) return;
+      await launchUrl(Uri.parse('https://play.google.com/store/apps/details?id=$installedPackage'), mode: LaunchMode.externalApplication);
     } catch (e) {
       debugPrint('openUpdatePage failed: $e');
     }

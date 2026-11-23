@@ -3,11 +3,12 @@ import 'package:intl/intl.dart';
 
 import '../../core/date_format.dart';
 import '../../models/models.dart';
+import '../../models/worksheet_models.dart';
 import '../../services/attendance_service.dart';
-import '../../services/daily_log_service.dart';
 import '../../services/overtime_service.dart';
 import '../../services/reimbursement_service.dart';
 import '../../services/salary_service.dart';
+import '../../services/worksheet_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/wfh_day_card.dart';
@@ -36,7 +37,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
   late final TabController _tabController;
   final _attendanceService = AttendanceService();
   final _overtimeService = OvertimeService();
-  final _dailyLogService = DailyLogService();
+  final _worksheetService = WorksheetService();
   final _reimbursementService = ReimbursementService();
   final _salaryService = SalaryService();
 
@@ -44,7 +45,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
   String? _error;
   List<AttendanceRecord> _attendance = [];
   List<OvertimeLogRecord> _overtime = [];
-  List<VisitLogRecord> _dailyLogs = [];
+  List<WorksheetDetailRow> _worksheet = [];
   List<ReimbursementRecord> _reimbursements = [];
   List<SalaryRecord> _salary = [];
 
@@ -71,7 +72,12 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
       final results = await Future.wait([
         _attendanceService.getEmployeeAttendance(widget.employeeId, now.month, now.year),
         _overtimeService.getOvertimeAdminList(employeeId: widget.employeeId),
-        _dailyLogService.getEmployeeVisitLogs(widget.employeeId),
+        // Last 90 days of this person's worksheet (every status). A failure here (e.g. no Worksheet Report access)
+        // must not blank the rest of the profile, so it degrades to an empty tab.
+        _worksheetService
+            .getReport(from: now.subtract(const Duration(days: 90)), to: now, employeeId: widget.employeeId, status: 'All')
+            .then<List<WorksheetDetailRow>>((r) => r.detail)
+            .catchError((_) => <WorksheetDetailRow>[]),
         _reimbursementService.getReimbursementList(employeeId: widget.employeeId),
         _salaryService.getEmployeeSalaryList(widget.employeeId),
       ]);
@@ -79,7 +85,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
       setState(() {
         _attendance = results[0] as List<AttendanceRecord>;
         _overtime = results[1] as List<OvertimeLogRecord>;
-        _dailyLogs = results[2] as List<VisitLogRecord>;
+        _worksheet = results[2] as List<WorksheetDetailRow>;
         _reimbursements = results[3] as List<ReimbursementRecord>;
         _salary = results[4] as List<SalaryRecord>;
         _loading = false;
@@ -146,7 +152,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
                 tabs: const [
                   Tab(text: 'Attendance'),
                   Tab(text: 'Overtime'),
-                  Tab(text: 'Daily Log'),
+                  Tab(text: 'Worksheet'),
                   Tab(text: 'Reimbursement'),
                   Tab(text: 'Salary'),
                 ],
@@ -236,19 +242,23 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> with Sing
   }
 
   Widget _buildDailyLogTab() {
-    if (_dailyLogs.isEmpty) return const EmptyState(message: 'No daily logs yet.', icon: Icons.assignment_outlined);
+    if (_worksheet.isEmpty) return const EmptyState(message: 'Nothing on the worksheet in the last 90 days.', icon: Icons.assignment_outlined);
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _dailyLogs.length,
+        itemCount: _worksheet.length,
         itemBuilder: (context, i) {
-          final l = _dailyLogs[i];
+          final w = _worksheet[i];
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              title: Text(l.agenda, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('${l.visitDate} · ${l.customerName} · ${l.projectName}${l.duration.isNotEmpty ? ' · ${l.duration}' : ''}'),
+              title: Text(w.task.isEmpty ? w.project : w.task, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                '${formatDate(w.date)} · ${w.project} · ${formatWorkedHours(w.hours)}${w.description.isNotEmpty ? '\n${w.description}' : ''}',
+              ),
+              isThreeLine: w.description.isNotEmpty,
+              trailing: StatusBadge(status: w.status),
             ),
           );
         },

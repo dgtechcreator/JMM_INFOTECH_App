@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/app_lock_tile.dart';
 import '../../widgets/permission_guard.dart';
 import 'attendance_screen.dart';
 import 'home_screen.dart';
@@ -17,6 +18,16 @@ class EmployeeShell extends StatefulWidget {
 
 class _EmployeeShellState extends State<EmployeeShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // First time on this phone: offer fingerprint / face unlock (once; never nags after "Not now"). Delayed so it
+    // does not land on top of the permission prompts the shell shows on first launch.
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) offerAppLockOnce(context);
+    });
+  }
 
   final _screens = const [
     HomeScreen(),

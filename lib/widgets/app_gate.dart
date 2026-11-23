@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_config.dart';
+import '../services/app_update_service.dart';
 import '../theme/app_theme.dart';
 
 /// Sits above the whole Navigator (MaterialApp.builder) so a portal-side "Update required" or "Maintenance"
@@ -32,6 +33,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       context.read<AppConfigController>().refreshIfStale();
+      AppUpdateService.checkOnOpen(); // throttled: asks Play at most every few hours
     }
   }
 

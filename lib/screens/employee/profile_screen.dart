@@ -13,7 +13,6 @@ import '../profile/edit_profile_screen.dart';
 import '../profile/login_activity_screen.dart';
 import '../profile/notification_settings_screen.dart';
 import 'attendance_screen.dart';
-import 'daily_log_screen.dart';
 import 'documents_screen.dart';
 import 'leave_screen.dart';
 import 'notifications_screen.dart';
@@ -21,6 +20,8 @@ import 'reimbursement_screen.dart';
 import 'salary_screen.dart';
 import 'tasks_screen.dart';
 import 'wfh_screen.dart';
+import 'worksheet_screen.dart';
+import '../../widgets/app_lock_tile.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -72,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _MenuItem('Leave', Icons.event_available_outlined, () => _open(const LeaveScreen())),
       _MenuItem('Work From Home', Icons.home_work_outlined, () => _open(const WfhScreen())),
       _MenuItem('My Tasks', Icons.checklist_outlined, () => _open(const TasksScreen())),
-      _MenuItem('Daily Log', Icons.edit_note_outlined, () => _open(const DailyLogScreen())),
+      _MenuItem('Worksheet', Icons.edit_note_outlined, () => _open(const WorksheetScreen())),
       _MenuItem('Reimbursement', Icons.receipt_long_outlined, () => _open(const ReimbursementScreen())),
       _MenuItem('Salary & Payslips', Icons.account_balance_wallet_outlined, () => _open(const SalaryScreen())),
       _MenuItem('My Documents', Icons.description_outlined, () => _open(const DocumentsScreen())),
@@ -171,6 +172,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               children: [
                 _securityTile(Icons.lock_outline, 'Change password', 'Sign-in password for this account', () => _open(const ChangePasswordScreen())),
+                const Divider(height: 1),
+                const AppLockTile(),
                 const Divider(height: 1),
                 _securityTile(Icons.devices_other_outlined, 'My login activity', 'Phones signed in to your account, and when', () => _open(const LoginActivityScreen())),
                 const Divider(height: 1),

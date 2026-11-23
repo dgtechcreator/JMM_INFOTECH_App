@@ -6,16 +6,19 @@ import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
 import 'core/app_config.dart';
+import 'core/app_lock.dart';
 import 'core/session.dart';
 import 'screens/admin/admin_shell.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/employee/employee_shell.dart';
+import 'services/app_update_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_router.dart';
 import 'services/push_notification_service.dart';
 import 'services/trip_tracking_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_gate.dart';
+import 'widgets/app_lock_gate.dart';
 
 bool _handlingEndedSession = false;
 
@@ -51,6 +54,9 @@ void main() async {
   await ApiConfig.loadPersisted();
   final appConfig = AppConfigController();
   await appConfig.init();
+  // Optional fingerprint/face unlock: loads its on/off switch from local storage (a cold start with it on starts locked).
+  final appLock = AppLockController();
+  await appLock.init();
   // Firebase push and the background location service are native (Android/iOS) features. A Flutter WEB build —
   // only ever used to eyeball UI changes quickly in a browser — has neither configured, and awaiting their
   // init there throws before runApp() and leaves a blank page.
@@ -58,15 +64,18 @@ void main() async {
     await PushNotificationService.initialize();
     await TripTrackingService.initialize();
   }
-  runApp(JmmEmployeeApp(appConfig: appConfig));
+  runApp(JmmEmployeeApp(appConfig: appConfig, appLock: appLock));
   // In the background: ask the portal for its current settings (new server address, forced update,
   // maintenance). Failure is silent — the last known settings stay in force.
   unawaited(appConfig.refresh());
+  // A newer build on Google Play? Offer the update (Play's own dialog). Delayed so it never competes with startup.
+  unawaited(Future.delayed(const Duration(seconds: 3), AppUpdateService.checkOnOpen));
 }
 
 class JmmEmployeeApp extends StatelessWidget {
-  const JmmEmployeeApp({super.key, required this.appConfig});
+  const JmmEmployeeApp({super.key, required this.appConfig, required this.appLock});
   final AppConfigController appConfig;
+  final AppLockController appLock;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +83,7 @@ class JmmEmployeeApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => Session()),
         ChangeNotifierProvider.value(value: appConfig),
+        ChangeNotifierProvider.value(value: appLock),
       ],
       child: MaterialApp(
         title: 'JMM Employee',
@@ -81,7 +91,7 @@ class JmmEmployeeApp extends StatelessWidget {
         navigatorKey: navigatorKey,
         theme: AppTheme.light(),
         // Portal-controlled "Update required" / "Maintenance" screens cover everything, login included.
-        builder: (context, child) => AppGate(child: child ?? const SizedBox.shrink()),
+        builder: (context, child) => AppGate(child: AppLockGate(child: child ?? const SizedBox.shrink())),
         home: const _SplashGate(),
       ),
     );

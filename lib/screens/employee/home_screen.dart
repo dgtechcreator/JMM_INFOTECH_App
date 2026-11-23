@@ -23,7 +23,6 @@ import '../../widgets/profile_avatar.dart';
 import '../../widgets/swipe_button.dart';
 import '../../widgets/wfh_day_card.dart';
 import 'company_updates_screen.dart';
-import 'daily_log_screen.dart';
 import 'documents_screen.dart';
 import 'leave_screen.dart';
 import 'my_visits_screen.dart';
@@ -33,6 +32,7 @@ import 'reimbursement_screen.dart';
 import 'salary_screen.dart';
 import 'tasks_screen.dart';
 import 'wfh_screen.dart';
+import 'worksheet_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -496,7 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
       title: 'Quick actions',
       child: QuickActionGrid(items: [
         QuickActionItem('Reimburse', Icons.receipt_long_outlined, AppColors.info, () => _open(const ReimbursementScreen())),
-        QuickActionItem('Daily log', Icons.edit_note_outlined, AppColors.warning, () => _open(const DailyLogScreen())),
+        QuickActionItem('Worksheet', Icons.edit_note_outlined, AppColors.warning, () => _open(const WorksheetScreen())),
         QuickActionItem('Payslip', Icons.account_balance_wallet_outlined, AppColors.success, () => _open(const SalaryScreen())),
         QuickActionItem('My visits', Icons.map_outlined, AppColors.danger, () => _open(const MyVisitsScreen())),
         QuickActionItem('WFH', Icons.home_work_outlined, AppColors.info, () => _open(const WfhScreen(), reload: true)),

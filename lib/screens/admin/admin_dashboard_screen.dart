@@ -33,6 +33,7 @@ import 'task_assignment_screen.dart';
 import 'team_attendance_screen.dart';
 import 'visit_assignment_screen.dart';
 import 'wfh_admin_screen.dart';
+import 'worksheet_report_screen.dart';
 
 // Status colours for the ring / legend. Light tones, because they sit on the orange hero (the dark navy hero
 // of the first mockup did not match the rest of the app).
@@ -499,6 +500,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         QuickActionItem('Field visits', Icons.map_outlined, const Color(0xFF4F46E5), () => _open(const VisitAssignmentScreen())),
         QuickActionItem('Live tracking', Icons.navigation_outlined, AppColors.warning, () => _open(const LiveTrackingScreen())),
         QuickActionItem('Work from home', Icons.home_work_outlined, AppColors.info, () => _open(const WfhAdminScreen())),
+        QuickActionItem('Worksheet report', Icons.query_stats_outlined, AppColors.info, () => _open(const WorksheetReportScreen())),
         QuickActionItem('Login activity', Icons.admin_panel_settings_outlined, AppColors.danger, () => _open(const EmployeeLoginActivityScreen())),
         QuickActionItem('Payroll', Icons.payments_outlined, const Color(0xFF9333EA), () => _open(const PayrollScreen())),
         QuickActionItem('Employees', Icons.groups_outlined, const Color(0xFF0D9488), () => _open(const EmployeesScreen())),

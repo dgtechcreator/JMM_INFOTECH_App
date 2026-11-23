@@ -12,6 +12,7 @@ import '../profile/change_password_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import '../profile/login_activity_screen.dart';
 import '../profile/notification_settings_screen.dart';
+import '../../widgets/app_lock_tile.dart';
 
 /// Admin-side counterpart to employee/profile_screen.dart — was missing entirely (AdminShell had no
 /// Profile tab at all), so an Admin login had no way to view their own info, change their photo, or log out
@@ -117,6 +118,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
             child: Column(
               children: [
                 _securityTile(Icons.lock_outline, 'Change password', 'Sign-in password for this account', () => _open(const ChangePasswordScreen())),
+                const Divider(height: 1),
+                const AppLockTile(),
                 const Divider(height: 1),
                 _securityTile(Icons.devices_other_outlined, 'My login activity', 'Phones signed in to your account, and when', () => _open(const LoginActivityScreen())),
                 const Divider(height: 1),

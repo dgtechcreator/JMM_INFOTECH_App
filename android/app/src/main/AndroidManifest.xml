@@ -29,6 +29,8 @@
          fixes — flutter_background_service's own Android implementation requests this internally, but it
          still needs to be declared here to actually be granted. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Fingerprint / face unlock for the app lock (local_auth -> androidx.biometric BiometricPrompt). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <application
         android:label="JMM InfoTech"
         android:name="${applicationName}"
